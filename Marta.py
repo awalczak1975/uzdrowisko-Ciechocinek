@@ -92,8 +92,8 @@ def stworz_tabele_html(df):
     html += '</tbody></table>'
     return html
 
-# --- 4. START (DOPASOWANIE DO ARKUSZA) ---
-# Tutaj nazwy muszą się zgadzać co do litery z arkuszem Google
+# --- 4. START (DOPASOWANIE DO ZAKŁADEK Z TWOJEGO ZDJĘCIA NR 13) ---
+# Usunięto cyfrę "1" i zachowano małe litery
 df_biezace, czas_synchro, liczba_biezacych = pobierz_dane("Zadania bieżące")
 df_zrealizowane, _, liczba_zrealizowanych = pobierz_dane("Zadania zrealizowane")
 df_slawka, _, _ = pobierz_dane("Terminy Sławka")
