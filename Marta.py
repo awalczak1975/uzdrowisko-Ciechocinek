@@ -8,12 +8,13 @@ from fpdf import FPDF
 from streamlit_autorefresh import st_autorefresh
 
 # --- 1. KONFIGURACJA ---
-# USTAWIŁEM DOKŁADNĄ NAZWĘ Z TWOJEGO ZDJĘCIA NR 10
+# Nazwa pliku musi być identyczna z tą w Google Sheets
 NAZWA_ARKUSZA = "Marta-Dział Techniczny"
 
 st.set_page_config(page_title="System Uzdrowisko - Andrzej", layout="wide")
 st_autorefresh(interval=300000, key="datarefresh")
 
+# Parametr użytkownika (np. ?user=Andrzej w linku)
 user_url = st.query_params.get("user", "Andrzej")
 
 # --- 2. STYLIZACJA CSS ---
@@ -35,12 +36,15 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. FUNKCJE ---
+# --- 3. FUNKCJE POŁĄCZENIA ---
 def pobierz_polaczenie():
     try:
         if "gcp_service_account" in st.secrets:
             info = dict(st.secrets["gcp_service_account"])
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(info, ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(
+                info, 
+                ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+            )
             return gspread.authorize(creds)
     except Exception as e:
         st.error(f"Błąd połączenia: {e}")
@@ -57,7 +61,7 @@ def pobierz_dane(zakladka):
         df_full = pd.DataFrame(dane[1:], columns=dane[0])
         aktualizacja = datetime.now().strftime("%H:%M")
         
-        # Licznik z kolumny A
+        # Licznik z kolumny A (Treść zadania)
         liczba_wpisow = len(df_full[df_full.iloc[:, 0].str.strip() != ""])
         df_view = df_full.iloc[:, :5].copy()
         
@@ -75,7 +79,7 @@ def pobierz_dane(zakladka):
         return pd.DataFrame(), "", 0
 
 def stworz_tabele_html(df):
-    if df.empty: return "<p style='text-align:center;'>Brak zadań.</p>"
+    if df.empty: return "<p style='text-align:center;'>Brak zadań w tej zakładce.</p>"
     kol_merytoryczne = [c for c in df.columns if c not in [' ', 'DNI_N']]
     wys_kol = [' '] + kol_merytoryczne[:5]
     html = '<table class="html-table"><thead><tr>'
@@ -88,31 +92,34 @@ def stworz_tabele_html(df):
     html += '</tbody></table>'
     return html
 
-# --- 4. START ---
-# DOPASOWANE DO TWOJEGO ARKUSZA (ZDJĘCIE 10)
-df_biezace, czas_synchro, liczba_biezacych = pobierz_dane("1 Zadania bieżące")
+# --- 4. START (DOPASOWANIE DO ARKUSZA) ---
+# Tutaj nazwy muszą się zgadzać co do litery z arkuszem Google
+df_biezace, czas_synchro, liczba_biezacych = pobierz_dane("Zadania bieżące")
 df_zrealizowane, _, liczba_zrealizowanych = pobierz_dane("Zadania zrealizowane")
 df_slawka, _, _ = pobierz_dane("Terminy Sławka")
 
-# WIDOK
+# --- 5. PANEL BOCZNY ---
 with st.sidebar:
     st.title("System Uzdrowisko")
     st.info(f"Zalogowany: {user_url}")
-    if st.button("🔄 ODŚWIEŻ"): st.rerun()
+    if st.button("🔄 ODŚWIEŻ DANE"): st.rerun()
 
+# --- 6. WIDOK GŁÓWNY ---
 st.markdown(f'<div class="top-bar"><p>AKTUALIZACJA: {czas_synchro}</p></div>', unsafe_allow_html=True)
 st.markdown('<h4 style="text-align:center;">Centrum Zarządzania Administracją</h4>', unsafe_allow_html=True)
 
+# Kafelki statystyk
 c1, c2, c3, c4 = st.columns(4)
-with c1: st.markdown(f'<div class="metric-card"><p>📋 BIEŻĄCE (A)</p><h3>{liczba_biezacych}</h3></div>', unsafe_allow_html=True)
+with c1: st.markdown(f'<div class="metric-card"><p>📋 BIEŻĄCE</p><h3>{liczba_biezacych}</h3></div>', unsafe_allow_html=True)
 with c2: 
     pilne = len(df_biezace[df_biezace['DNI_N'].between(-3, 0)]) if 'DNI_N' in df_biezace.columns else 0
     st.markdown(f'<div class="metric-card"><p>⏳ PILNE</p><h3>{pilne}</h3></div>', unsafe_allow_html=True)
 with c3:
     spoz = len(df_biezace[df_biezace['DNI_N'] > 0]) if 'DNI_N' in df_biezace.columns else 0
     st.markdown(f'<div class="metric-card"><p>🔥 PO TERMINIE</p><h3>{spoz}</h3></div>', unsafe_allow_html=True)
-with c4: st.markdown(f'<div class="metric-card"><p>✅ ZREALIZOWANE (A)</p><h3>{liczba_zrealizowanych}</h3></div>', unsafe_allow_html=True)
+with c4: st.markdown(f'<div class="metric-card"><p>✅ ZREALIZOWANE</p><h3>{liczba_zrealizowanych}</h3></div>', unsafe_allow_html=True)
 
+# Zakładki z tabelami
 tabs = st.tabs(["📋 BIEŻĄCE", "✅ ZREALIZOWANE", "📅 TERMINY SŁAWKA"])
 with tabs[0]: st.markdown(stworz_tabele_html(df_biezace), unsafe_allow_html=True)
 with tabs[1]: st.markdown(stworz_tabele_html(df_zrealizowane), unsafe_allow_html=True)
