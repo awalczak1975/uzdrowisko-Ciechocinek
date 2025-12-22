@@ -8,12 +8,12 @@ from fpdf import FPDF
 from streamlit_autorefresh import st_autorefresh
 
 # --- 1. KONFIGURACJA ---
+# USTAWIŁEM DOKŁADNĄ NAZWĘ Z TWOJEGO ZDJĘCIA NR 10
 NAZWA_ARKUSZA = "Marta-Dział Techniczny"
 
 st.set_page_config(page_title="System Uzdrowisko - Andrzej", layout="wide")
 st_autorefresh(interval=300000, key="datarefresh")
 
-# --- PARAMETRY UŻYTKOWNIKA Z LINKU ---
 user_url = st.query_params.get("user", "Andrzej")
 
 # --- 2. STYLIZACJA CSS ---
@@ -57,7 +57,7 @@ def pobierz_dane(zakladka):
         df_full = pd.DataFrame(dane[1:], columns=dane[0])
         aktualizacja = datetime.now().strftime("%H:%M")
         
-        # LICZNIK Z KOLUMNY A
+        # Licznik z kolumny A
         liczba_wpisow = len(df_full[df_full.iloc[:, 0].str.strip() != ""])
         df_view = df_full.iloc[:, :5].copy()
         
@@ -70,12 +70,6 @@ def pobierz_dane(zakladka):
         else:
             df_view[' '] = "✅" if zakladka == "Zadania zrealizowane" else "📋"
 
-        # FILTROWANIE
-        if user_url == "Slawek":
-            df_view = df_view[df_view['OSOBA'].str.contains("Sławek", case=False, na=False)]
-        elif user_url in ["Marta", "Agata", "Rafal"]:
-            df_view = df_view[~df_view['OSOBA'].str.contains("Sławek", case=False, na=False)]
-            
         return df_view, aktualizacja, liczba_wpisow
     except:
         return pd.DataFrame(), "", 0
@@ -95,22 +89,17 @@ def stworz_tabele_html(df):
     return html
 
 # --- 4. START ---
-df_biezace, czas_synchro, liczba_biezacych = pobierz_dane("Zadania bieżące")
+# DOPASOWANE DO TWOJEGO ARKUSZA (ZDJĘCIE 10)
+df_biezace, czas_synchro, liczba_biezacych = pobierz_dane("1 Zadania bieżące")
 df_zrealizowane, _, liczba_zrealizowanych = pobierz_dane("Zadania zrealizowane")
 df_slawka, _, _ = pobierz_dane("Terminy Sławka")
 
-# PANEL BOCZNY
+# WIDOK
 with st.sidebar:
     st.title("System Uzdrowisko")
-    if user_url == "Andrzej":
-        st.button("➕ DODAJ ZADANIE")
-        st.button("💾 ZAPISZ ZMIANY")
-        if st.button("🔄 SYNCHRONIZUJ"): st.rerun()
-    else:
-        st.info(f"Witaj, {user_url}!")
-        if st.button("🔄 ODŚWIEŻ"): st.rerun()
+    st.info(f"Zalogowany: {user_url}")
+    if st.button("🔄 ODŚWIEŻ"): st.rerun()
 
-# WIDOK GŁÓWNY
 st.markdown(f'<div class="top-bar"><p>AKTUALIZACJA: {czas_synchro}</p></div>', unsafe_allow_html=True)
 st.markdown('<h4 style="text-align:center;">Centrum Zarządzania Administracją</h4>', unsafe_allow_html=True)
 
@@ -124,11 +113,7 @@ with c3:
     st.markdown(f'<div class="metric-card"><p>🔥 PO TERMINIE</p><h3>{spoz}</h3></div>', unsafe_allow_html=True)
 with c4: st.markdown(f'<div class="metric-card"><p>✅ ZREALIZOWANE (A)</p><h3>{liczba_zrealizowanych}</h3></div>', unsafe_allow_html=True)
 
-zakladki = ["📋 BIEŻĄCE", "✅ ZREALIZOWANE"]
-if user_url in ["Slawek", "Andrzej"]: zakladki.append("📅 TERMINY SŁAWKA")
-tabs = st.tabs(zakladki)
-
+tabs = st.tabs(["📋 BIEŻĄCE", "✅ ZREALIZOWANE", "📅 TERMINY SŁAWKA"])
 with tabs[0]: st.markdown(stworz_tabele_html(df_biezace), unsafe_allow_html=True)
 with tabs[1]: st.markdown(stworz_tabele_html(df_zrealizowane), unsafe_allow_html=True)
-if len(tabs) > 2:
-    with tabs[2]: st.markdown(stworz_tabele_html(df_slawka), unsafe_allow_html=True)
+with tabs[2]: st.markdown(stworz_tabele_html(df_slawka), unsafe_allow_html=True)
