@@ -8,13 +8,13 @@ from fpdf import FPDF
 from streamlit_autorefresh import st_autorefresh
 
 # --- 1. KONFIGURACJA ---
-# Nazwa pliku musi być identyczna z tą w Google Sheets
+# Nazwa arkusza musi być identyczna z tą w Google Sheets
 NAZWA_ARKUSZA = "Marta-Dział Techniczny"
 
 st.set_page_config(page_title="System Uzdrowisko - Andrzej", layout="wide")
 st_autorefresh(interval=300000, key="datarefresh")
 
-# Parametr użytkownika (np. ?user=Andrzej w linku)
+# Parametr użytkownika (domyślnie Andrzej)
 user_url = st.query_params.get("user", "Andrzej")
 
 # --- 2. STYLIZACJA CSS ---
@@ -27,7 +27,7 @@ st.markdown("""
     .metric-card { background-color: #1e293b; border-radius: 8px; padding: 10px; border-top: 4px solid #facc15; text-align: center; color: white; }
     .metric-card h3 { margin: 0; font-size: 1.5rem; }
     .metric-card p { margin: 0; color: #facc15; font-size: 0.75rem; font-weight: bold; }
-    .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 0.9rem; }
+    .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 0.9rem; margin-top: 10px; }
     .html-table th { background-color: #f1f5f9; color: #475569; text-align: left; padding: 12px; border-bottom: 2px solid #eab308; }
     .html-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
     .html-table tr:nth-child(even) { background-color: rgba(30, 41, 59, 0.05); }
@@ -36,7 +36,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. FUNKCJE POŁĄCZENIA ---
+# --- 3. FUNKCJE ---
 def pobierz_polaczenie():
     try:
         if "gcp_service_account" in st.secrets:
@@ -56,13 +56,15 @@ def pobierz_dane(zakladka):
     try:
         sheet = client.open(NAZWA_ARKUSZA).worksheet(zakladka)
         dane = sheet.get_all_values()
-        if not dane: return pd.DataFrame(), "", 0
+        if not dane or len(dane) < 2: return pd.DataFrame(), "", 0
         
         df_full = pd.DataFrame(dane[1:], columns=dane[0])
         aktualizacja = datetime.now().strftime("%H:%M")
         
-        # Licznik z kolumny A (Treść zadania)
+        # Licznik zadań (wszystkie niepuste wiersze w kolumnie A)
         liczba_wpisow = len(df_full[df_full.iloc[:, 0].str.strip() != ""])
+        
+        # Przygotowanie widoku (pierwsze 5 kolumn)
         df_view = df_full.iloc[:, :5].copy()
         
         if 'DNI' in df_view.columns:
@@ -73,13 +75,13 @@ def pobierz_dane(zakladka):
             df_view[' '] = df_view.apply(ustaw_ikonke, axis=1)
         else:
             df_view[' '] = "✅" if zakladka == "Zadania zrealizowane" else "📋"
-
+            
         return df_view, aktualizacja, liczba_wpisow
     except:
         return pd.DataFrame(), "", 0
 
 def stworz_tabele_html(df):
-    if df.empty: return "<p style='text-align:center;'>Brak zadań w tej zakładce.</p>"
+    if df.empty: return "<p style='text-align:center; padding:20px;'>Brak zadań w tej zakładce.</p>"
     kol_merytoryczne = [c for c in df.columns if c not in [' ', 'DNI_N']]
     wys_kol = [' '] + kol_merytoryczne[:5]
     html = '<table class="html-table"><thead><tr>'
@@ -92,8 +94,7 @@ def stworz_tabele_html(df):
     html += '</tbody></table>'
     return html
 
-# --- 4. START (DOPASOWANIE DO ZAKŁADEK Z TWOJEGO ZDJĘCIA NR 13) ---
-# Usunięto cyfrę "1" i zachowano małe litery
+# --- 4. START (NAZWY ZGODNE Z TWOIM ARKUSZEM) ---
 df_biezace, czas_synchro, liczba_biezacych = pobierz_dane("Zadania bieżące")
 df_zrealizowane, _, liczba_zrealizowanych = pobierz_dane("Zadania zrealizowane")
 df_slawka, _, _ = pobierz_dane("Terminy Sławka")
@@ -105,7 +106,7 @@ with st.sidebar:
     if st.button("🔄 ODŚWIEŻ DANE"): st.rerun()
 
 # --- 6. WIDOK GŁÓWNY ---
-st.markdown(f'<div class="top-bar"><p>AKTUALIZACJA: {czas_synchro}</p></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="top-bar"><p>OSTATNIA SYNCHRONIZACJA: {czas_synchro}</p></div>', unsafe_allow_html=True)
 st.markdown('<h4 style="text-align:center;">Centrum Zarządzania Administracją</h4>', unsafe_allow_html=True)
 
 # Kafelki statystyk
