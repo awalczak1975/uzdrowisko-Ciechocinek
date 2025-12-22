@@ -2,41 +2,17 @@ import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
-import os
 from datetime import datetime
-from fpdf import FPDF
 from streamlit_autorefresh import st_autorefresh
 
 # --- 1. KONFIGURACJA ---
-# Nazwa arkusza musi być identyczna z tą w Google Sheets
+# Upewnij się, że nazwa poniżej jest IDENTYCZNA z nazwą pliku w Google Sheets
 NAZWA_ARKUSZA = "Marta-Dział Techniczny"
 
-st.set_page_config(page_title="System Uzdrowisko - Andrzej", layout="wide")
+st.set_page_config(page_title="System Uzdrowisko", layout="wide")
 st_autorefresh(interval=300000, key="datarefresh")
 
-# Parametr użytkownika
-user_url = st.query_params.get("user", "Andrzej")
-
-# --- 2. STYLIZACJA CSS ---
-st.markdown("""
-    <style>
-    .block-container { padding-top: 0.5rem !important; }
-    [data-testid="stHeader"] { display: none !important; }
-    .top-bar { background-color: #1e293b; height: 30px; border-bottom: 2px solid #facc15; display: flex; align-items: center; justify-content: flex-end; padding-right: 20px; }
-    .top-bar p { color: #ff4b4b; font-weight: bold; font-size: 0.85rem; margin: 0; }
-    .metric-card { background-color: #1e293b; border-radius: 8px; padding: 10px; border-top: 4px solid #facc15; text-align: center; color: white; }
-    .metric-card h3 { margin: 0; font-size: 1.5rem; }
-    .metric-card p { margin: 0; color: #facc15; font-size: 0.75rem; font-weight: bold; }
-    .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 0.9rem; margin-top: 10px; }
-    .html-table th { background-color: #f1f5f9; color: #475569; text-align: left; padding: 12px; border-bottom: 2px solid #eab308; }
-    .html-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
-    .html-table tr:nth-child(even) { background-color: rgba(30, 41, 59, 0.05); }
-    [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #facc15 !important; color: white !important; }
-    .stButton button { background-color: #334155 !important; color: white !important; width: 100%; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 3. FUNKCJE ---
+# --- 2. FUNKCJE POŁĄCZENIA ---
 def pobierz_polaczenie():
     try:
         if "gcp_service_account" in st.secrets:
@@ -47,83 +23,67 @@ def pobierz_polaczenie():
             )
             return gspread.authorize(creds)
     except Exception as e:
-        st.error(f"Błąd połączenia: {e}")
+        st.error(f"Problem z kluczem w Secrets: {e}")
     return None
 
 def pobierz_dane(zakladka):
     client = pobierz_polaczenie()
-    if not client: return pd.DataFrame(), "", 0
+    if not client:
+        return pd.DataFrame(), 0
     try:
+        # Otwieramy arkusz i konkretną zakładkę
         sheet = client.open(NAZWA_ARKUSZA).worksheet(zakladka)
         dane = sheet.get_all_values()
-        if not dane or len(dane) < 2: return pd.DataFrame(), "", 0
         
-        df_full = pd.DataFrame(dane[1:], columns=dane[0])
-        aktualizacja = datetime.now().strftime("%H:%M")
+        if not dane or len(dane) < 2:
+            return pd.DataFrame(), 0
         
-        # Licznik zadań (wszystkie niepuste wiersze w kolumnie A)
-        liczba_wpisow = len(df_full[df_full.iloc[:, 0].str.strip() != ""])
+        # Tworzymy tabelę (pierwszy rząd to nagłówki)
+        df = pd.DataFrame(dane[1:], columns=dane[0])
         
-        # Przygotowanie widoku (pierwsze 5 kolumn)
-        df_view = df_full.iloc[:, :5].copy()
+        # Liczymy zadania (niepuste wiersze w pierwszej kolumnie)
+        liczba = len([x for x in df.iloc[:, 0] if str(x).strip() != ""])
         
-        # Kolory i ikonki na podstawie kolumny DNI
-        if 'DNI' in df_view.columns:
-            df_view['DNI_N'] = pd.to_numeric(df_view['DNI'], errors='coerce').fillna(0)
-            def ustaw_ikonke(row):
-                if zakladka == "Zadania zrealizowane": return "✅"
-                return "🔥" if row['DNI_N'] > 0 else "⏳" if row['DNI_N'] >= -3 else "✅"
-            df_view[' '] = df_view.apply(ustaw_ikonke, axis=1)
-        else:
-            df_view[' '] = "✅" if zakladka == "Zadania zrealizowane" else "📋"
-            
-        return df_view, aktualizacja, liczba_wpisow
-    except:
-        return pd.DataFrame(), "", 0
+        return df, liczba
+    except Exception as e:
+        # Jeśli nie znajdzie zakładki, wyświetli podpowiedź
+        st.warning(f"Nie znaleziono zakładki: '{zakladka}'. Sprawdź pisownię w arkuszu.")
+        return pd.DataFrame(), 0
 
-def stworz_tabele_html(df):
-    if df.empty: return "<p style='text-align:center; padding:20px;'>Brak zadań w tej zakładce.</p>"
-    kol_merytoryczne = [c for c in df.columns if c not in [' ', 'DNI_N']]
-    wys_kol = [' '] + kol_merytoryczne[:5]
-    html = '<table class="html-table"><thead><tr>'
-    for k in wys_kol: html += f"<th>{k if k != ' ' else ''}</th>"
-    html += '</tr></thead><tbody>'
-    for _, row in df.iterrows():
-        html += '<tr>'
-        for k in wys_kol: html += f'<td>{row[k]}</td>'
-        html += '</tr>'
-    html += '</tbody></table>'
-    return html
+# --- 3. POBIERANIE DANYCH ---
+# Nazwy poniżej muszą być identyczne z zakładkami na dole Twojego arkusza (zdjęcie nr 13)
+df_biezace, liczba_b = pobierz_dane("Zadania bieżące")
+df_zrealizowane, liczba_z = pobierz_dane("Zadania zrealizowane")
+df_slawka, _ = pobierz_dane("Terminy Sławka")
 
-# --- 4. START ---
-# Pobieranie danych dla wszystkich trzech zakładek widocznych na Twoim zdjęciu nr 13
-df_biezace, czas_synchro, liczba_biezacych = pobierz_dane("Zadania bieżące")
-df_zrealizowane, _, liczba_zrealizowanych = pobierz_dane("Zadania zrealizowane")
-df_slawka, _, _ = pobierz_dane("Terminy Sławka")
+# --- 4. WYGLĄD APLIKACJI ---
+st.markdown("<h3 style='text-align:center;'>Centrum Zarządzania Administracją</h3>", unsafe_allow_html=True)
+st.write(f"Ostatnia aktualizacja: {datetime.now().strftime('%H:%M:%S')}")
 
-# --- 5. PANEL BOCZNY ---
-with st.sidebar:
-    st.title("System Uzdrowisko")
-    st.info(f"Zalogowany: {user_url}")
-    if st.button("🔄 ODŚWIEŻ DANE"): st.rerun()
+# Kafelki z licznikami
+c1, c2 = st.columns(2)
+with c1:
+    st.metric("📋 WSZYSTKIE BIEŻĄCE", liczba_b)
+with c2:
+    st.metric("✅ ZREALIZOWANE", liczba_z)
 
-# --- 6. WIDOK GŁÓWNY ---
-st.markdown(f'<div class="top-bar"><p>OSTATNIA SYNCHRONIZACJA: {czas_synchro}</p></div>', unsafe_allow_html=True)
-st.markdown('<h4 style="text-align:center;">Centrum Zarządzania Administracją</h4>', unsafe_allow_html=True)
+# Tabele z danymi
+tabs = st.tabs(["📋 LISTA BIEŻĄCA", "✅ ZREALIZOWANE", "📅 TERMINY SŁAWKA"])
 
-# Kafelki statystyk
-c1, c2, c3, c4 = st.columns(4)
-with c1: st.markdown(f'<div class="metric-card"><p>📋 BIEŻĄCE</p><h3>{liczba_biezacych}</h3></div>', unsafe_allow_html=True)
-with c2: 
-    pilne = len(df_biezace[df_biezace['DNI_N'].between(-3, 0)]) if 'DNI_N' in df_biezace.columns else 0
-    st.markdown(f'<div class="metric-card"><p>⏳ PILNE</p><h3>{pilne}</h3></div>', unsafe_allow_html=True)
-with c3:
-    spoz = len(df_biezace[df_biezace['DNI_N'] > 0]) if 'DNI_N' in df_biezace.columns else 0
-    st.markdown(f'<div class="metric-card"><p>🔥 PO TERMINIE</p><h3>{spoz}</h3></div>', unsafe_allow_html=True)
-with c4: st.markdown(f'<div class="metric-card"><p>✅ ZREALIZOWANE</p><h3>{liczba_zrealizowanych}</h3></div>', unsafe_allow_html=True)
+with tabs[0]:
+    if not df_biezace.empty:
+        st.dataframe(df_biezace, use_container_width=True)
+    else:
+        st.write("Brak danych w zakładce 'Zadania bieżące'.")
 
-# Zakładki z tabelami
-tabs = st.tabs(["📋 BIEŻĄCE", "✅ ZREALIZOWANE", "📅 TERMINY SŁAWKA"])
-with tabs[0]: st.markdown(stworz_tabele_html(df_biezace), unsafe_allow_html=True)
-with tabs[1]: st.markdown(stworz_tabele_html(df_zrealizowane), unsafe_allow_html=True)
-with tabs[2]: st.markdown(stworz_tabele_html(df_slawka), unsafe_allow_html=True)
+with tabs[1]:
+    if not df_zrealizowane.empty:
+        st.dataframe(df_zrealizowane, use_container_width=True)
+    else:
+        st.write("Brak danych w zakładce 'Zadania zrealizowane'.")
+
+with tabs[2]:
+    if not df_slawka.empty:
+        st.dataframe(df_slawka, use_container_width=True)
+    else:
+        st.write("Brak danych w zakładce 'Terminy Sławka'.")
