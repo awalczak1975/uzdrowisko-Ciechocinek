@@ -14,7 +14,7 @@ NAZWA_ARKUSZA = "Marta-Dział Techniczny"
 st.set_page_config(page_title="System Uzdrowisko - Andrzej", layout="wide")
 st_autorefresh(interval=300000, key="datarefresh")
 
-# Parametr użytkownika (domyślnie Andrzej)
+# Parametr użytkownika
 user_url = st.query_params.get("user", "Andrzej")
 
 # --- 2. STYLIZACJA CSS ---
@@ -67,6 +67,7 @@ def pobierz_dane(zakladka):
         # Przygotowanie widoku (pierwsze 5 kolumn)
         df_view = df_full.iloc[:, :5].copy()
         
+        # Kolory i ikonki na podstawie kolumny DNI
         if 'DNI' in df_view.columns:
             df_view['DNI_N'] = pd.to_numeric(df_view['DNI'], errors='coerce').fillna(0)
             def ustaw_ikonke(row):
@@ -94,7 +95,8 @@ def stworz_tabele_html(df):
     html += '</tbody></table>'
     return html
 
-# --- 4. START (NAZWY ZGODNE Z TWOIM ARKUSZEM) ---
+# --- 4. START ---
+# Pobieranie danych dla wszystkich trzech zakładek widocznych na Twoim zdjęciu nr 13
 df_biezace, czas_synchro, liczba_biezacych = pobierz_dane("Zadania bieżące")
 df_zrealizowane, _, liczba_zrealizowanych = pobierz_dane("Zadania zrealizowane")
 df_slawka, _, _ = pobierz_dane("Terminy Sławka")
