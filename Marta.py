@@ -1,12 +1,134 @@
-[gcp_service_account]
-type = "service_account"
-project_id = "graphic-tide-472709-i5"
-private_key_id = "e523e6c10044f9b702cbcdb4bd9659f6130b40da"
-private_key = "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCjsp/ImbvGaOsh\nHzkt25dL/vy0Rkn56bXd6jjbVj7vXufmRCRDj3dHq9rY8bttX1dLLkZ8p+iOh+uY\neSExA70ofmH8LsOjLH8fXMxVCv4RaBXSpaFSKEokEvYmFdMwnxXLp8wRNW1sBaO+\njk5gyHI0fVDoRBnQoA+qBi9E8l5DdVGOgtVXDD/lNjH3RmNXMe1awDC8KDnDM9QL\nv8Gb9JSiZh/HXH2LvZkQaygLGho6wfuNitSb6uEyt0yTxKul64jeygXr/g3wm0nr\nzowDfLZ/1ejKG5yS0HqD9IvhSiaVwUyGO2DabIbPA6pOTLkvfXNRSckKyd05Dj+M\nczzXA7RjAgMBAAECggEAEdExhVbU8nxdSe5z6Ehe4trUQYDnBghd5FNdMI5mF41i\nZenjx+YNIGQVqV2Xk14jCl/1NGsy1j9NXCakVLPopPLV579lSX+LL0GH90z/fgCG\nDjaQj6MqqAYs/Cni9zH8NX2Zf1lWhBaRuH4VDNa0YNSE97WLLm3FgVwz9+f+F48N\nYbAysxDKsY0uxmsE5G0pBHIkD8L6nHs8sZsgfjSmuOiZrgU4x/PYM6VNqCHb5TXG\nCXJydCeL+kQ44AqACIeCY6InqGm8RKZBSj5SjPQvW/gx4XIklWM/PWdyKVU7V+ui\nag8TBjIRNSlDz5gBmurjqephaCHbp+FQy5uuX3PhVQKBgQDlTNFkDSLDAsxfnr/R\neHLdo2oBvsYrMTn0vHx0ja1GgPTMoJhbOVgyvWAd75f7oLC42Wi4bE/FjN55NL49\nF1KeCdAAdFd+07zGd1iXYMn0Hh3ST/GEGPnpD/3KSb6iQtK/cDTkrbFo75ADoRxl\nXkjfyY/vOLM3yOs9qdqJAjfgXwKBgQC2wkYB/pHvHiYHNlM84zyMV4CP1TpmA7Hf\nkQR005JJBTRjfQi8h4A4kRCIFD2BXvoDhpEwbGzcVb4DAQTo77dxjY57fzJyVxRu\ntJDeF/Ar6zf7hpZJeAgn4YgIAe3KryqkBJiGbeCo5DbHZOXHiwNmXwtoho0cRl6L\n37hjCn6afQKBgAUTpVMsw0dECZhYYHDX1Ns5YgB149dS+LCFd8/wzxRPiJv7NkRW\nybAd50HiayAEF8WP8rSamU2LZ+WRGGEr4gVjvDo2WTWSpIxUWh7H4tDH1esxH+zH\nzMivNPREm7bl+dqJNnKVsebb3vllmMZZxw1FXi1yuO0UQrkTyKXd6bTLAoGAeSH/\nIOdIdsL21aTuOtcqlKKStcLQuDkOtm36FCz/MqLefGqtVbhCBjwwRuGTeqIm+BtD\nNGNJLCkwjfEo/fOVFRCMNdKy7xJEmrPXqT0YlSOMsYwdJIkIbtaPQS92GvdLPfdF\n2SQO2iKZJEP+AOpk0H+Coj88XFdP50nbftm/3EkCgYA/jRZkdesA9o4P0Z9kM4Tq\nN19oVL4e4TiRElKLuvHxJdt53ysMy2TSj+gTQxjkBabPJ2WBwZTz8N4zYmLIC88y\nLRg8xVjciCpzgTDKZSm26evaBq2Biyn1g1MM4/U6tPu7N8bkv2Esfb3SeFinxJr6\nia+5A9Pu1PigMJhuXxnZ+Q==\n-----END PRIVATE KEY-----\n"
-client_email = "monitoring-medi-w@graphic-tide-472709-i5.iam.gserviceaccount.com"
-client_id = "111737304888541331789"
-auth_uri = "https://accounts.google.com/o/oauth2/auth"
-token_uri = "https://oauth2.googleapis.com/token"
-auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
-client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/monitoring-medi-w%40graphic-tide-472709-i5.iam.gserviceaccount.com"
-universe_domain = "googleapis.com"
+import streamlit as st
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import pandas as pd
+import os
+from datetime import datetime
+from fpdf import FPDF
+from streamlit_autorefresh import st_autorefresh
+
+# --- 1. KONFIGURACJA ---
+NAZWA_ARKUSZA = "Marta-Dział Techniczny"
+
+st.set_page_config(page_title="System Uzdrowisko - Andrzej", layout="wide")
+st_autorefresh(interval=300000, key="datarefresh")
+
+# --- PARAMETRY UŻYTKOWNIKA Z LINKU ---
+user_url = st.query_params.get("user", "Andrzej")
+
+# --- 2. STYLIZACJA CSS ---
+st.markdown("""
+    <style>
+    .block-container { padding-top: 0.5rem !important; }
+    [data-testid="stHeader"] { display: none !important; }
+    .top-bar { background-color: #1e293b; height: 30px; border-bottom: 2px solid #facc15; display: flex; align-items: center; justify-content: flex-end; padding-right: 20px; }
+    .top-bar p { color: #ff4b4b; font-weight: bold; font-size: 0.85rem; margin: 0; }
+    .metric-card { background-color: #1e293b; border-radius: 8px; padding: 10px; border-top: 4px solid #facc15; text-align: center; color: white; }
+    .metric-card h3 { margin: 0; font-size: 1.5rem; }
+    .metric-card p { margin: 0; color: #facc15; font-size: 0.75rem; font-weight: bold; }
+    .html-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 0.9rem; }
+    .html-table th { background-color: #f1f5f9; color: #475569; text-align: left; padding: 12px; border-bottom: 2px solid #eab308; }
+    .html-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    .html-table tr:nth-child(even) { background-color: rgba(30, 41, 59, 0.05); }
+    [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #facc15 !important; color: white !important; }
+    .stButton button { background-color: #334155 !important; color: white !important; width: 100%; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 3. FUNKCJE ---
+def pobierz_polaczenie():
+    try:
+        if "gcp_service_account" in st.secrets:
+            info = dict(st.secrets["gcp_service_account"])
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(info, ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
+            return gspread.authorize(creds)
+    except Exception as e:
+        st.error(f"Błąd połączenia: {e}")
+    return None
+
+def pobierz_dane(zakladka):
+    client = pobierz_polaczenie()
+    if not client: return pd.DataFrame(), "", 0
+    try:
+        sheet = client.open(NAZWA_ARKUSZA).worksheet(zakladka)
+        dane = sheet.get_all_values()
+        if not dane: return pd.DataFrame(), "", 0
+        
+        df_full = pd.DataFrame(dane[1:], columns=dane[0])
+        aktualizacja = datetime.now().strftime("%H:%M")
+        
+        # LICZNIK Z KOLUMNY A
+        liczba_wpisow = len(df_full[df_full.iloc[:, 0].str.strip() != ""])
+        df_view = df_full.iloc[:, :5].copy()
+        
+        if 'DNI' in df_view.columns:
+            df_view['DNI_N'] = pd.to_numeric(df_view['DNI'], errors='coerce').fillna(0)
+            def ustaw_ikonke(row):
+                if zakladka == "Zadania zrealizowane": return "✅"
+                return "🔥" if row['DNI_N'] > 0 else "⏳" if row['DNI_N'] >= -3 else "✅"
+            df_view[' '] = df_view.apply(ustaw_ikonke, axis=1)
+        else:
+            df_view[' '] = "✅" if zakladka == "Zadania zrealizowane" else "📋"
+
+        # FILTROWANIE
+        if user_url == "Slawek":
+            df_view = df_view[df_view['OSOBA'].str.contains("Sławek", case=False, na=False)]
+        elif user_url in ["Marta", "Agata", "Rafal"]:
+            df_view = df_view[~df_view['OSOBA'].str.contains("Sławek", case=False, na=False)]
+            
+        return df_view, aktualizacja, liczba_wpisow
+    except:
+        return pd.DataFrame(), "", 0
+
+def stworz_tabele_html(df):
+    if df.empty: return "<p style='text-align:center;'>Brak zadań.</p>"
+    kol_merytoryczne = [c for c in df.columns if c not in [' ', 'DNI_N']]
+    wys_kol = [' '] + kol_merytoryczne[:5]
+    html = '<table class="html-table"><thead><tr>'
+    for k in wys_kol: html += f"<th>{k if k != ' ' else ''}</th>"
+    html += '</tr></thead><tbody>'
+    for _, row in df.iterrows():
+        html += '<tr>'
+        for k in wys_kol: html += f'<td>{row[k]}</td>'
+        html += '</tr>'
+    html += '</tbody></table>'
+    return html
+
+# --- 4. START ---
+df_biezace, czas_synchro, liczba_biezacych = pobierz_dane("Zadania bieżące")
+df_zrealizowane, _, liczba_zrealizowanych = pobierz_dane("Zadania zrealizowane")
+df_slawka, _, _ = pobierz_dane("Terminy Sławka")
+
+# PANEL BOCZNY
+with st.sidebar:
+    st.title("System Uzdrowisko")
+    if user_url == "Andrzej":
+        st.button("➕ DODAJ ZADANIE")
+        st.button("💾 ZAPISZ ZMIANY")
+        if st.button("🔄 SYNCHRONIZUJ"): st.rerun()
+    else:
+        st.info(f"Witaj, {user_url}!")
+        if st.button("🔄 ODŚWIEŻ"): st.rerun()
+
+# WIDOK GŁÓWNY
+st.markdown(f'<div class="top-bar"><p>AKTUALIZACJA: {czas_synchro}</p></div>', unsafe_allow_html=True)
+st.markdown('<h4 style="text-align:center;">Centrum Zarządzania Administracją</h4>', unsafe_allow_html=True)
+
+c1, c2, c3, c4 = st.columns(4)
+with c1: st.markdown(f'<div class="metric-card"><p>📋 BIEŻĄCE (A)</p><h3>{liczba_biezacych}</h3></div>', unsafe_allow_html=True)
+with c2: 
+    pilne = len(df_biezace[df_biezace['DNI_N'].between(-3, 0)]) if 'DNI_N' in df_biezace.columns else 0
+    st.markdown(f'<div class="metric-card"><p>⏳ PILNE</p><h3>{pilne}</h3></div>', unsafe_allow_html=True)
+with c3:
+    spoz = len(df_biezace[df_biezace['DNI_N'] > 0]) if 'DNI_N' in df_biezace.columns else 0
+    st.markdown(f'<div class="metric-card"><p>🔥 PO TERMINIE</p><h3>{spoz}</h3></div>', unsafe_allow_html=True)
+with c4: st.markdown(f'<div class="metric-card"><p>✅ ZREALIZOWANE (A)</p><h3>{liczba_zrealizowanych}</h3></div>', unsafe_allow_html=True)
+
+zakladki = ["📋 BIEŻĄCE", "✅ ZREALIZOWANE"]
+if user_url in ["Slawek", "Andrzej"]: zakladki.append("📅 TERMINY SŁAWKA")
+tabs = st.tabs(zakladki)
+
+with tabs[0]: st.markdown(stworz_tabele_html(df_biezace), unsafe_allow_html=True)
+with tabs[1]: st.markdown(stworz_tabele_html(df_zrealizowane), unsafe_allow_html=True)
+if len(tabs) > 2:
+    with tabs[2]: st.markdown(stworz_tabele_html(df_slawka), unsafe_allow_html=True)
