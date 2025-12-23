@@ -9,7 +9,7 @@ from streamlit_autorefresh import st_autorefresh
 # ----------------------------
 # 1. KONFIGURACJA
 # ----------------------------
-KLUCZ_JSON = "nowy_klucz.json"            # <-- wpisz tutaj swój plik JSON
+KLUCZ_JSON = "klucz.json"            # <-- wpisz tutaj swój plik JSON
 NAZWA_ARKUSZA = "Marta-Dział Techniczny"  # <-- wpisz tutaj nazwę arkusza
 SCOPES = [
     "https://spreadsheets.google.com/feeds",
@@ -65,3 +65,4 @@ pobierz_arkusz()
 # 6. CZAS OSTATNIEJ AKTUALIZACJI
 # ----------------------------
 st.markdown(f"**Aktualizacja danych:** {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
+
