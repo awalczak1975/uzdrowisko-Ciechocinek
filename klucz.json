@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "graphic-tide-472709-i5",
+  "private_key_id": "98eba0b6df3ccf59cb875734eb73d78da8a046d4",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDef+gU995UzYCY\nctcP+EwncY+bwOkkCGSdccfe3DqoQ91/yNdnCbNoeR1GFEs68qNcp6p2qQJclLW1\nVmFUMVZQpI6JflIbPNXMDQCfnfvC8GHoYs/gJWHrYYNbryXeoasd9oxZtxgW0SIa\nbToXsj1FFgb8M/x2ckXbSjZpmZR2qYmTktqMQO6PU8oqFKmTG/Jw/OjsRdtiqwUV\n+2JJF8RpEpgygNRWRlXEIEbdiEeiX64+UBd05z6O34si6lbZw3esp8kViEJYLx1R\nYoPyemthb2Ri03P74iDVHDSP4p0ZXzLWW5LMXOU8fp7dJaUzIDbQu19yAfyo/aXZ\n0l60+BvbAgMBAAECggEAXIOuilluFrDEEZ9ekQNbFuN/JPIXfqYGv/h5dM75jNF7\nHhDyj6NW98+0Plld1orhJjuJA4HOu5QR4e6i1ZEWJL3njn/5v92RwCB/696SukGd\nVDUR3k9s4aRQLCUth96M+g5z2THqUEJw/bABAa1ZEIrSKLes98sYBNBcw5faRWP+\ninv0yMWCs/fLHAtOy6Wk7LEKpp61VlduErVHEFHlPAdfywPWlCOczhWCtSFDFndI\nJ47CqyuJ9gXWVZvVSrHu4EWC6TWHIFBB1Aft+gx241XDR7ukmtE/7AKgWtlCtXrV\nCf2zaTw7DsbA6aq7h8RENcrxEoHHQtEfiBckgGpTgQKBgQD0f8HSJGf1MMyMV+X1\nuRrkGMOMHtb+63feNvdQMrv94nggx63Jsxmuh3bBvyOqXbKxrtZ7iwAx9oxoLmet\nAteALkjGXmacVay3IkzTeD5mh1PrITMz6Q9vPB0DPnvzYDDLaJyLofKIo17syhQe\nInAul4s6rpqZwqrNV/rU8M52uwKBgQDo9zva6SG/sSOJd48oRyn9634UfKCr1HE+\n3QfGM8+FFZ6VO1RLennF8ObqPCyCI7djzE4hEmje2RLRh2HjENsBHJbvL9PqTyyb\nd3/w57a4lt/LRmiTSR/kCMR0b+r/fPeEOXfhNABQW2dcF5TGt7Ryn/jIehmaIjz0\nCls+UFbtYQKBgCKOuCdqi+ME/bRMbC1Z92oL8f+pEDxBrdSTskr8kMOmsdH4RyD+\nFoArl2Z1DKZ0zd/9VUVq9SEatue2v2KdxzXP1OtsxlYMafgMeg1drnwxXnQaYjFR\nHKRdO8CMoVpZ2yu04oN95VjYtn8DZOqJdY+wTbaCnUlkUV3qtIJKcvQnAoGBANUv\n8ilI8GZgLtoMfAfq36WLDCypQ8satKtHT2b0YLIz75Q239PWd3tJEbdGa6CIGLmN\n6+1d0HQmB4+QqWZGNXPV+tVVWkLwQyzd9Um6cb6H6rI1c1tdLn7Z+xVmmZFFhagN\ngwOmN6dRjct7lN0onUvL0rl66tTfAhJ9K7RhhrrhAoGAdXtAT3g9acaaguBOU7Zk\nP5w48L+FoFVUp26PeLZy7yRj7SMg8ew1yeT030kjAEygnh6A2OF9pSVoTO2heQlS\n1vhZVoKGZw7LphRFkx2+jnV72FqmUX5WtdvZBjXiJSNkhe13pgd5mqX7H71lIQLV\nu40QAZFWGP77HEgXiGDB4yU=\n-----END PRIVATE KEY-----\n",
+  "client_email": "monitoring-medi-w@graphic-tide-472709-i5.iam.gserviceaccount.com",
+  "client_id": "111737304888541331789",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/monitoring-medi-w%40graphic-tide-472709-i5.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
