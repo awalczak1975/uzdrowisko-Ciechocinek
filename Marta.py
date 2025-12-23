@@ -3,96 +3,68 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 from datetime import datetime
-from streamlit_autorefresh import st_autorefresh
+import json
+import os
 
-# --- 1. KONFIGURACJA GŁÓWNA ---
-# Nazwa pliku w Google Sheets musi być identyczna
+# --- KONFIGURACJA ---
 NAZWA_ARKUSZA = "Marta-Dział Techniczny"
+PLIK_KLUCZA = "klucz.json"
 
 st.set_page_config(page_title="System Uzdrowisko", layout="wide")
-# Automatyczne odświeżanie aplikacji co 5 minut
-st_autorefresh(interval=300000, key="datarefresh")
 
 def pobierz_polaczenie():
-    """Łączy się z Google Sheets i naprawia błędy formatowania klucza."""
+    """Łączy się z Google Sheets używając pliku klucz.json z GitHub."""
     try:
-        # Pobieranie danych z bezpiecznej sekcji Secrets zamiast pliku JSON
-        if "gcp_service_account" in st.secrets:
-            info = dict(st.secrets["gcp_service_account"])
-            
-            # Naprawa klucza prywatnego (zamiana \n na prawdziwe nowe linie)
-            if "private_key" in info:
-                info["private_key"] = info["private_key"].replace("\\n", "\n")
-            
+        # Sprawdzamy czy plik istnieje w folderze aplikacji
+        if os.path.exists(PLIK_KLUCZA):
             scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
+            creds = ServiceAccountCredentials.from_json_keyfile_name(PLIK_KLUCZA, scope)
             return gspread.authorize(creds)
+        else:
+            st.error("❌ Nie znaleziono pliku klucz.json w repozytorium!")
+            return None
     except Exception as e:
-        st.error(f"Błąd klucza w Secrets: {e}")
-    return None
+        st.error(f"❌ Błąd połączenia: {e}")
+        return None
 
-def pobierz_dane_po_indeksie(numer_arkusza):
-    """Pobiera dane z arkusza na podstawie jego pozycji (indeksu)."""
+def pobierz_dane(indeks):
+    """Pobiera dane z konkretnej zakładki arkusza."""
     client = pobierz_polaczenie()
-    if not client: 
-        return pd.DataFrame(), 0, "Błąd połączenia"
+    if not client: return pd.DataFrame(), 0, "Błąd"
     try:
         doc = client.open(NAZWA_ARKUSZA)
         arkusze = doc.worksheets()
-        
-        if len(arkusze) > numer_arkusza:
-            sheet = arkusze[numer_arkusza]
-            tytul_zakladki = sheet.title
-            dane_surowe = sheet.get_all_values()
-            
-            if len(dane_surowe) < 2: 
-                return pd.DataFrame(), 0, tytul_zakladki
-            
-            # Tworzenie tabeli (pierwszy wiersz to nagłówki)
-            df = pd.DataFrame(dane_surowe[1:], columns=dane_surowe[0])
-            
-            # Liczymy rzędy z danymi (niepuste w pierwszej kolumnie)
-            liczba_zadan = len([x for x in df.iloc[:, 0] if str(x).strip() != ""])
-            return df, liczba_zadan, tytul_zakladki
-        
-        return pd.DataFrame(), 0, "Nie znaleziono"
+        if len(arkusze) > indeks:
+            sheet = arkusze[indeks]
+            dane = sheet.get_all_values()
+            if len(dane) < 2: return pd.DataFrame(), 0, sheet.title
+            df = pd.DataFrame(dane[1:], columns=dane[0])
+            liczba = len([x for x in df.iloc[:, 0] if str(x).strip() != ""])
+            return df, liczba, sheet.title
+        return pd.DataFrame(), 0, "Brak"
     except Exception as e:
-        return pd.DataFrame(), 0, f"Błąd: {str(e)}"
+        return pd.DataFrame(), 0, f"Błąd: {e}"
 
-# --- 2. POBIERANIE DANYCH ---
-# 0 = Zadania bieżące, 1 = Zadania zrealizowane, 4 = Terminy Sławka
-df_biezace, liczba_b, nazwa_b = pobierz_dane_po_indeksie(0)
-df_zrealizowane, liczba_z, nazwa_z = pobierz_dane_po_indeksie(1)
-df_slawka, _, nazwa_s = pobierz_dane_po_indeksie(4)
+# --- POBIERANIE DANYCH ---
+df_b, l_b, n_b = pobierz_dane(0) # Bieżące
+df_z, l_z, n_z = pobierz_dane(1) # Zrealizowane
+df_s, _, n_s = pobierz_dane(4)   # Sławek
 
-# --- 3. WYGLĄD I WYŚWIETLANIE ---
+# --- INTERFEJS ---
 st.markdown("<h2 style='text-align:center;'>Centrum Zarządzania Administracją</h2>", unsafe_allow_html=True)
-st.write(f"Aktualizacja: {datetime.now().strftime('%d.%m.%Y %H:%M')}")
+st.write(f"Stan na: {datetime.now().strftime('%d.%m.%Y %H:%M')}")
 
-# Górne kafelki (Poprawiona składnia usuwająca AttributeError)
-kol1, kol2 = st.columns(2)
-kol1.metric(label=f"📋 {nazwa_b.upper()}", value=liczba_b)
-kol2.metric(label=f"✅ {nazwa_z.upper()}", value=liczba_z)
+# Kafelki z liczbami
+c1, c2 = st.columns(2)
+c1.metric(f"📋 {n_b}", l_b)
+c2.metric(f"✅ {n_z}", l_z)
 
-st.divider()
-
-# Zakładki w aplikacji
-zakladki_ui = st.tabs([f"📋 {nazwa_b}", f"✅ {nazwa_z}", f"📅 {nazwa_s}"])
-
-with zakladki_ui[0]:
-    if not df_biezace.empty:
-        st.dataframe(df_biezace, use_container_width=True, hide_index=True)
-    else:
-        st.info("Brak aktywnych zadań.")
-
-with zakladki_ui[1]:
-    if not df_zrealizowane.empty:
-        st.dataframe(df_zrealizowane, use_container_width=True, hide_index=True)
-    else:
-        st.info("Brak zrealizowanych zadań.")
-
-with zakladki_ui[2]:
-    if not df_slawka.empty:
-        st.dataframe(df_slawka, use_container_width=True, hide_index=True)
-    else:
-        st.info("Brak danych w zakładce Sławka.")
+# Zakładki z tabelami
+tabs = st.tabs([n_b, n_z, n_s])
+with tabs[0]:
+    if not df_b.empty: st.dataframe(df_b, use_container_width=True, hide_index=True)
+    else: st.info("Brak zadań.")
+with tabs[1]:
+    if not df_z.empty: st.dataframe(df_z, use_container_width=True, hide_index=True)
+with tabs[2]:
+    if not df_s.empty: st.dataframe(df_s, use_container_width=True, hide_index=True)
