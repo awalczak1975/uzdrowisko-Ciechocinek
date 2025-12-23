@@ -1,12 +1,63 @@
-[gcp_service_account]
-type = "service_account"
-project_id = "graphic-tide-472709-i5"
-private_key_id = "e523e6c10044f9b702cbcdb4bd9659f6130b40da"
-private_key = "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCjsp/ImbvGaOsh\nHzkt25dL/vy0Rkn56bXd6jjbVj7vXufmRCRDj3dHq9rY8bttX1dLLkZ8p+iOh+uY\neSExA70ofmH8LsOjLH8fXMxVCv4RaBXSpaFSKEokEvYmFdMwnxXLp8wRNW1sBaO+\njk5gyHI0fVDoRBnQoA+qBi9E8l5DdVGOgtVXDD/lNjH3RmNXMe1awDC8KDnDM9QL\nv8Gb9JSiZh/HXH2LvZkQaygLGho6wfuNitSb6uEyt0yTxKul64jeygXr/g3wm0nr\nzowDfLZ/1ejKG5yS0HqD9IvhSiaVwUyGO2DabIbPA6pOTLkvfXNRSckKyd05Dj+M\nczzXA7RjAgMBAAECggEAEdExhVbU8nxdSe5z6Ehe4trUQYDnBghd5FNdMI5mF41i\nZenjx+YNIGQVqV2Xk14jCl/1NGsy1j9NXCakVLPopPLV579lSX+LL0GH90z/fgCG\nDjaQj6MqqAYs/Cni9zH8NX2Zf1lWhBaRuH4VDNa0YNSE97WLLm3FgVwz9+f+F48N\nYbAysxDKsY0uxmsE5G0pBHIkD8L6nHs8sZsgfjSmuOiZrgU4x/PYM6VNqCHb5TXG\nCXJydCeL+kQ44AqACIeCY6InqGm8RKZBSj5SjPQvW/gx4XIklWM/PWdyKVU7V+ui\nag8TBjIRNSlDz5gBmurjqephaCHbp+FQy5uuX3PhVQKBgQDlTNFkDSLDAsxfnr/R\neHLdo2oBvsYrMTn0vHx0ja1GgPTMoJhbOVgyvWAd75f7oLC42Wi4bE/FjN55NL49\nF1KeCdAAdFd+07zGd1iXYMn0Hh3ST/GEGPnpD/3KSb6iQtK/cDTkrbFo75ADoRxl\nXkjfyY/vOLM3yOs9qdqJAjfgXwKBgQC2wkYB/pHvHiYHNlM84zyMV4CP1TpmA7Hf\nkQR005JJBTRjfQi8h4A4kRCIFD2BXvoDhpEwbGzcVb4DAQTo77dxjY57fzJyVxRu\ntJDeF/Ar6zf7hpZJeAgn4YgIAe3KryqkBJiGbeCo5DbHZOXHiwNmXwtoho0cRl6L\n37hjCn6afQKBgAUTpVMsw0dECZhYYHDX1Ns5YgB149dS+LCFd8/wzxRPiJv7NkRW\nybAd50HiayAEF8WP8rSamU2LZ+WRGGEr4gVjvDo2WTWSpIxUWh7H4tDH1esxH+zH\nzMivNPREm7bl+dqJNnKVsebb3vllmMZZxw1FXi1yuO0UQrkTyKXd6bTLAoGAeSH/\nIOdIdsL21aTuOtcqlKKStcLQuDkOtm36FCz/MqLefGqtVbhCBjwwRuGTeqIm+BtD\nNGNJLCkwjfEo/fOVFRCMNdKy7xJEmrPXqT0YlSOMsYwdJIkIbtaPQS92GvdLPfdF\n2SQO2iKZJEP+AOpk0H+Coj88XFdP50nbftm/3EkCgYA/jRZkdesA9o4P0Z9kM4Tq\nN19oVL4e4TiRElKLuvHxJdt53ysMy2TSj+gTQxjkBabPJ2WBwZTz8N4zYmLIC88y\nLRg8xVjciCpzgTDKZSm26evaBq2Biyn1g1MM4/U6tPu7N8bkv2Esfb3SeFinxJr6\nia+5A9Pu1PigMJhuXxnZ+Q==\n-----END PRIVATE KEY-----\n"
-client_email = "monitoring-medi-w@graphic-tide-472709-i5.iam.gserviceaccount.com"
-client_id = "111737304888541331789"
-auth_uri = "https://accounts.google.com/o/oauth2/auth"
-token_uri = "https://oauth2.googleapis.com/token"
-auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
-client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/monitoring-medi-w%40graphic-tide-472709-i5.iam.gserviceaccount.com"
-universe_domain = "googleapis.com"
+import streamlit as st
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import pandas as pd
+from datetime import datetime
+from streamlit_autorefresh import st_autorefresh
+
+# --- 1. KONFIGURACJA ---
+NAZWA_ARKUSZA = "Marta-Dział Techniczny"
+
+st.set_page_config(page_title="System Uzdrowisko", layout="wide")
+st_autorefresh(interval=300000, key="datarefresh")
+
+def pobierz_polaczenie():
+    try:
+        if "gcp_service_account" in st.secrets:
+            # Pobieramy dane z Secrets jako zwykły słownik
+            info = dict(st.secrets["gcp_service_account"])
+            # Kluczowa zmiana: upewniamy się, że znaki nowej linii są poprawnie czytane
+            if "private_key" in info:
+                info["private_key"] = info["private_key"].replace("\\n", "\n")
+            
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(
+                info, 
+                ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+            )
+            return gspread.authorize(creds)
+    except Exception as e:
+        st.error(f"Błąd konfiguracji klucza: {e}")
+    return None
+
+def pobierz_dane_po_indeksie(numer_arkusza):
+    client = pobierz_polaczenie()
+    if not client: return pd.DataFrame(), 0, "Błąd"
+    try:
+        doc = client.open(NAZWA_ARKUSZA)
+        arkusze = doc.worksheets()
+        if len(arkusze) > numer_arkusza:
+            sheet = arkusze[numer_arkusza]
+            dane = sheet.get_all_values()
+            if len(dane) < 2: return pd.DataFrame(), 0, sheet.title
+            df = pd.DataFrame(dane[1:], columns=dane[0])
+            liczba = len([x for x in df.iloc[:, 0] if str(x).strip() != ""])
+            return df, liczba, sheet.title
+        return pd.DataFrame(), 0, "Brak"
+    except Exception as e:
+        return pd.DataFrame(), 0, f"Błąd: {e}"
+
+# --- 2. START ---
+df_biezace, liczba_b, nazwa_b = pobierz_dane_po_indeksie(0)
+df_zrealizowane, liczba_z, nazwa_z = pobierz_dane_po_indeksie(1)
+df_slawka, _, nazwa_s = pobierz_dane_po_indeksie(4)
+
+st.markdown("<h3 style='text-align:center;'>Centrum Zarządzania Administracją</h3>", unsafe_allow_html=True)
+
+c1, c2 = st.columns(2)
+with c1: st.metric(f"📋 {nazwa_b}", liczba_b)
+with c2: st.metric(f"✅ {nazwa_z}", liczba_z)
+
+tabs = st.tabs([f"📋 {nazwa_b}", f"✅ {nazwa_z}", f"📅 {nazwa_s}"])
+with tabs[0]: st.dataframe(df_biezace, use_container_width=True) if not df_biezace.empty else st.write("Brak danych")
+with tabs[1]: st.dataframe(df_zrealizowane, use_container_width=True) if not df_zrealizowane.empty else st.write("Brak danych")
+with tabs[2]: st.dataframe(df_slawka, use_container_width=True) if not df_slawka.empty else st.write("Brak danych")
