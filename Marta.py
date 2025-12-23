@@ -5,66 +5,56 @@ import pandas as pd
 from datetime import datetime
 from streamlit_autorefresh import st_autorefresh
 
-# --- 1. KONFIGURACJA ---
+# --- KONFIGURACJA ---
 NAZWA_ARKUSZA = "Marta-Dział Techniczny"
-
 st.set_page_config(page_title="System Uzdrowisko", layout="wide")
 st_autorefresh(interval=300000, key="datarefresh")
 
 def pobierz_polaczenie():
-    """Łączy się z Google Sheets i naprawia błędy formatowania klucza."""
     try:
         if "gcp_service_account" in st.secrets:
-            # Pobieramy dane z sekcji Tajniki (Secrets)
             info = dict(st.secrets["gcp_service_account"])
-            
-            # PANCERNA POPRAWKA: Naprawiamy klucz, jeśli został wklejony w jednej linii.
-            # To rozwiązuje błędy 'Invalid JWT Signature' i 'base64' widoczne na zdjęciach.
-            if "private_key" in info:
-                info["private_key"] = info["private_key"].replace("\\n", "\n")
-            
-            scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
+            # Ta linia naprawia błędy formatowania klucza
+            info["private_key"] = info["private_key"].replace("\\n", "\n")
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(
+                info, ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+            )
             return gspread.authorize(creds)
     except Exception as e:
-        st.error(f"BŁĄD KONFIGURACJI: {e}")
+        st.error(f"Błąd klucza: {e}")
     return None
 
-def pobierz_dane_po_indeksie(numer_arkusza):
-    """Pobiera dane z arkusza na podstawie jego kolejności (indeksu)."""
+def pobierz_dane(nr_arkusza):
     client = pobierz_polaczenie()
     if not client: return pd.DataFrame(), 0, "Błąd"
     try:
         doc = client.open(NAZWA_ARKUSZA)
-        arkusze = doc.worksheets()
-        if len(arkusze) > numer_arkusza:
-            sheet = arkusze[numer_arkusza]
-            tytul = sheet.title
-            dane = sheet.get_all_values()
-            if len(dane) < 2: return pd.DataFrame(), 0, tytul
-            df = pd.DataFrame(dane[1:], columns=dane[0])
-            liczba = len([x for x in df.iloc[:, 0] if str(x).strip() != ""])
-            return df, liczba, tytul
-        return pd.DataFrame(), 0, "Nie znaleziono"
+        sheet = doc.worksheets()[nr_arkusza]
+        dane = sheet.get_all_values()
+        if len(dane) < 2: return pd.DataFrame(), 0, sheet.title
+        df = pd.DataFrame(dane[1:], columns=dane[0])
+        liczba = len([x for x in df.iloc[:, 0] if str(x).strip() != ""])
+        return df, liczba, sheet.title
     except Exception as e:
-        return pd.DataFrame(), 0, f"BŁĄD WCZYTYWANIA: {e}"
+        return pd.DataFrame(), 0, f"Błąd: {e}"
 
-# --- 2. START (Pobieranie 1, 2 i 5 zakładki) ---
-df_biezace, liczba_b, nazwa_b = pobierz_dane_po_indeksie(0)
-df_zrealizowane, liczba_z, nazwa_z = pobierz_dane_po_indeksie(1)
-df_slawka, _, nazwa_s = pobierz_dane_po_indeksie(4)
+# --- POBIERANIE ---
+df1, l1, n1 = pobierz_dane(0)
+df2, l2, n2 = pobierz_dane(1)
+df3, l3, n3 = pobierz_dane(4)
 
-# --- 3. WYGLĄD ---
-st.markdown("<h2 style='text-align:center;'>Centrum Zarządzania Administracją</h2>", unsafe_allow_html=True)
-st.write(f"Aktualizacja: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
+# --- INTERFEJS ---
+st.markdown("<h3 style='text-align:center;'>Centrum Zarządzania Administracją</h3>", unsafe_allow_html=True)
+st.write(f"Ostatnia aktualizacja: {datetime.now().strftime('%H:%M:%S')}")
 
-kol1, kol2 = st.columns(2)
-with kol1:
-    st.metric(label=f"📋 {nazwa_b.upper()}", value=liczba_b)
-with kol2:
-    st.metric(label=f"✅ {nazwa_z.upper()}", value=liczba_z)
+c1, c2 = st.columns(2)
+with c1: st.metric(f"📋 {n1}", l1)
+with c2: st.metric(f"✅ {n2}", l2)
 
-tabs = st.tabs([f"📋 {nazwa_b}", f"✅ {nazwa_z}", f"📅 {nazwa_s}"])
-with tabs[0]: st.dataframe(df_biezace, use_container_width=True, hide_index=True) if not df_biezace.empty else st.info("Brak aktywnych zadań.")
-with tabs[1]: st.dataframe(df_zrealizowane, use_container_width=True, hide_index=True) if not df_zrealizowane.empty else st.info("Brak zadań.")
-with tabs[2]: st.dataframe(df_slawka, use_container_width=True, hide_index=True) if not df_slawka.empty else st.info("Brak danych.")
+tabs = st.tabs([n1, n2, n3])
+with tabs[0]:
+    if not df1.empty: st.dataframe(df1, use_container_width=True, hide_index=True)
+with tabs[1]:
+    if not df2.empty: st.dataframe(df2, use_container_width=True, hide_index=True)
+with tabs[2]:
+    if not df3.empty: st.dataframe(df3, use_container_width=True, hide_index=True)
