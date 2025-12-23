@@ -20,7 +20,7 @@ def pobierz_polaczenie():
             info = dict(st.secrets["gcp_service_account"])
             
             # PANCERNA POPRAWKA: Naprawiamy klucz, jeśli został wklejony w jednej linii.
-            # To rozwiązuje błędy 'Invalid JWT Signature' widoczne na Twoich zdjęciach.
+            # To rozwiązuje błędy 'Invalid JWT Signature' i 'base64' widoczne na zdjęciach.
             if "private_key" in info:
                 info["private_key"] = info["private_key"].replace("\\n", "\n")
             
@@ -57,8 +57,7 @@ def pobierz_dane_po_indeksie(numer_arkusza):
     except Exception as e:
         return pd.DataFrame(), 0, f"Błąd wczytywania: {str(e)}"
 
-# --- 2. POBIERANIE DANYCH ---
-# 0 = pierwsza zakładka, 1 = druga, 4 = piąta (Terminy Sławka)
+# --- 2. POBIERANIE DANYCH (0=Zadania bieżące, 1=Zrealizowane, 4=Terminy Sławka) ---
 df_biezace, liczba_b, nazwa_b = pobierz_dane_po_indeksie(0)
 df_zrealizowane, liczba_z, nazwa_z = pobierz_dane_po_indeksie(1)
 df_slawka, _, nazwa_s = pobierz_dane_po_indeksie(4)
@@ -67,7 +66,7 @@ df_slawka, _, nazwa_s = pobierz_dane_po_indeksie(4)
 st.markdown("<h2 style='text-align:center;'>Centrum Zarządzania Administracją</h2>", unsafe_allow_html=True)
 st.write(f"Aktualizacja: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
 
-# Górne kafelki
+# Górne kafelki (naprawiona składnia usuwająca AttributeError)
 kol1, kol2 = st.columns(2)
 kol1.metric(label=f"📋 {nazwa_b.upper()}", value=liczba_b)
 kol2.metric(label=f"✅ {nazwa_z.upper()}", value=liczba_z)
