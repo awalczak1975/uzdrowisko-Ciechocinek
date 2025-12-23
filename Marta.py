@@ -4,111 +4,95 @@ from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 from datetime import datetime
 from streamlit_autorefresh import st_autorefresh
-import io
 
-# --- 1. KONFIGURACJA STRONY ---
-st.set_page_config(page_title="System Uzdrowisko - Andrzej", layout="wide")
+# --- 1. KONFIGURACJA GŁÓWNA ---
+# Nazwa pliku w Google Sheets musi być identyczna
+NAZWA_ARKUSZA = "Marta-Dział Techniczny"
+
+st.set_page_config(page_title="System Uzdrowisko", layout="wide")
+# Automatyczne odświeżanie aplikacji co 5 minut
 st_autorefresh(interval=300000, key="datarefresh")
 
-# --- 2. WYBÓR PLIKU JSON ---
-st.sidebar.header("Ustawienia")
-uploaded_file = st.sidebar.file_uploader("Wgraj plik JSON konta serwisowego Google", type="json")
-
-if uploaded_file is None:
-    st.error("❌ Brak pliku JSON! Wgraj plik, aby kontynuować.")
-    st.stop()
-
-# --- 3. PARAMETRY UŻYTKOWNIKA Z LINKU ---
-query_params = st.query_params
-user_url = query_params.get("user", ["Andrzej"])[0]
-
-# --- 4. FUNKCJE ---
-def pobierz_polaczenie(json_file):
-    json_dict = pd.read_json(json_file, typ='dict')
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(
-        json_dict,
-        ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    )
-    return gspread.authorize(creds)
-
-def pobierz_dane(client, arkusz, zakladka):
+def pobierz_polaczenie():
+    """Łączy się z Google Sheets i naprawia błędy formatowania klucza."""
     try:
-        sheet = client.open(arkusz).worksheet(zakladka)
-        dane = sheet.get_all_values()
-        if not dane: return pd.DataFrame(), "", 0
-        df_full = pd.DataFrame(dane[1:], columns=dane[0])
-        aktualizacja = datetime.now().strftime("%H:%M")
-        liczba_wpisow = len(df_full[df_full.iloc[:,0].str.strip() != ""])
-        df_view = df_full.iloc[:, :5].copy()
-        if 'DNI' in df_view.columns:
-            df_view['DNI_N'] = pd.to_numeric(df_view['DNI'], errors='coerce').fillna(0)
-            # ustawienie ikonki
-            def ustaw_ikonke(row):
-                if zakladka == "Zadania zrealizowane": return "✅"
-                if row['DNI_N'] > 0: return "🔥"
-                if row['DNI_N'] >= -3: return "⏳"
-                return "✅"
-            df_view[' '] = df_view.apply(ustaw_ikonke, axis=1)
-        else:
-            df_view[' '] = "✅" if zakladka == "Zadania zrealizowane" else "📋"
-        # filtrowanie użytkowników
-        if user_url == "Slawek":
-            df_view = df_view[df_view['OSOBA'].str.contains("Sławek", case=False, na=False)]
-        elif user_url in ["Marta", "Agata", "Rafal"]:
-            df_view = df_view[~df_view['OSOBA'].str.contains("Sławek", case=False, na=False)]
-        return df_view, aktualizacja, liczba_wpisow
+        # Pobieranie danych z bezpiecznej sekcji Secrets zamiast pliku JSON
+        if "gcp_service_account" in st.secrets:
+            info = dict(st.secrets["gcp_service_account"])
+            
+            # Naprawa klucza prywatnego (zamiana \n na prawdziwe nowe linie)
+            if "private_key" in info:
+                info["private_key"] = info["private_key"].replace("\\n", "\n")
+            
+            scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
+            return gspread.authorize(creds)
     except Exception as e:
-        st.error(f"Błąd pobierania danych: {e}")
-        return pd.DataFrame(), "", 0
+        st.error(f"Błąd klucza w Secrets: {e}")
+    return None
 
-def stworz_tabele_html(df):
-    if df.empty: return "<p style='text-align:center; padding:20px;'>Brak zadań do wyświetlenia.</p>"
-    kol_merytoryczne = [c for c in df.columns if c not in [' ', 'DNI_N']]
-    wys_kol = [' '] + kol_merytoryczne[:5]
-    html = '<table style="width:100%;border-collapse:collapse;font-family:sans-serif;font-size:0.9rem;">'
-    html += '<tr>' + ''.join([f'<th>{k if k != " " else ""}</th>' for k in wys_kol]) + '</tr>'
-    for _, row in df.iterrows():
-        html += '<tr>' + ''.join([f'<td>{row[k]}</td>' for k in wys_kol]) + '</tr>'
-    html += '</table>'
-    return html
+def pobierz_dane_po_indeksie(numer_arkusza):
+    """Pobiera dane z arkusza na podstawie jego pozycji (indeksu)."""
+    client = pobierz_polaczenie()
+    if not client: 
+        return pd.DataFrame(), 0, "Błąd połączenia"
+    try:
+        doc = client.open(NAZWA_ARKUSZA)
+        arkusze = doc.worksheets()
+        
+        if len(arkusze) > numer_arkusza:
+            sheet = arkusze[numer_arkusza]
+            tytul_zakladki = sheet.title
+            dane_surowe = sheet.get_all_values()
+            
+            if len(dane_surowe) < 2: 
+                return pd.DataFrame(), 0, tytul_zakladki
+            
+            # Tworzenie tabeli (pierwszy wiersz to nagłówki)
+            df = pd.DataFrame(dane_surowe[1:], columns=dane_surowe[0])
+            
+            # Liczymy rzędy z danymi (niepuste w pierwszej kolumnie)
+            liczba_zadan = len([x for x in df.iloc[:, 0] if str(x).strip() != ""])
+            return df, liczba_zadan, tytul_zakladki
+        
+        return pd.DataFrame(), 0, "Nie znaleziono"
+    except Exception as e:
+        return pd.DataFrame(), 0, f"Błąd: {str(e)}"
 
-# --- 5. ŁĄCZENIE Z GOOGLE SHEETS ---
-try:
-    json_data = io.StringIO(uploaded_file.getvalue().decode("utf-8"))
-    client = pobierz_polaczenie(json_data)
-except Exception as e:
-    st.error(f"❌ Błąd autoryzacji: {e}")
-    st.stop()
+# --- 2. POBIERANIE DANYCH ---
+# 0 = Zadania bieżące, 1 = Zadania zrealizowane, 4 = Terminy Sławka
+df_biezace, liczba_b, nazwa_b = pobierz_dane_po_indeksie(0)
+df_zrealizowane, liczba_z, nazwa_z = pobierz_dane_po_indeksie(1)
+df_slawka, _, nazwa_s = pobierz_dane_po_indeksie(4)
 
-# --- 6. POBIERANIE DANYCH ---
-NAZWA_ARKUSZA = "Marta-Dział Techniczny"
-df_biezace, czas_synchro, liczba_biezacych = pobierz_dane(client, NAZWA_ARKUSZA, "Zadania bieżące")
-df_zrealizowane, _, liczba_zrealizowanych = pobierz_dane(client, NAZWA_ARKUSZA, "Zadania zrealizowane")
-df_slawka, _, _ = pobierz_dane(client, NAZWA_ARKUSZA, "Terminy Sławka")
+# --- 3. WYGLĄD I WYŚWIETLANIE ---
+st.markdown("<h2 style='text-align:center;'>Centrum Zarządzania Administracją</h2>", unsafe_allow_html=True)
+st.write(f"Aktualizacja: {datetime.now().strftime('%d.%m.%Y %H:%M')}")
 
-# --- 7. WIDOK GŁÓWNY ---
-st.markdown(f"**OSTATNIA AKTUALIZACJA:** {czas_synchro}")
+# Górne kafelki (Poprawiona składnia usuwająca AttributeError)
+kol1, kol2 = st.columns(2)
+kol1.metric(label=f"📋 {nazwa_b.upper()}", value=liczba_b)
+kol2.metric(label=f"✅ {nazwa_z.upper()}", value=liczba_z)
 
-# metryki
-if not df_biezace.empty:
-    col1, col2, col3, col4 = st.columns(4)
-    with col1: st.metric("📋 MOJE ZADANIA", liczba_biezacych)
-    with col2:
-        pilne = len(df_biezace[(df_biezace['DNI_N'] >= -3) & (df_biezace['DNI_N'] <= 0)]) if 'DNI_N' in df_biezace.columns else 0
-        st.metric("⏳ PILNE", pilne)
-    with col3:
-        spoznione = len(df_biezace[df_biezace['DNI_N'] > 0]) if 'DNI_N' in df_biezace.columns else 0
-        st.metric("🔥 PO CZASIE", spoznione)
-    with col4: st.metric("✅ ZREALIZOWANE", liczba_zrealizowanych)
+st.divider()
 
-# zakładki
-lista_zakladek = ["📋 MOJE BIEŻĄCE", "✅ MOJE ZREALIZOWANE"]
-if user_url in ["Slawek", "Andrzej"]:
-    lista_zakladek.append("📅 TERMINY SŁAWKA")
+# Zakładki w aplikacji
+zakladki_ui = st.tabs([f"📋 {nazwa_b}", f"✅ {nazwa_z}", f"📅 {nazwa_s}"])
 
-tabs = st.tabs(lista_zakladek)
+with zakladki_ui[0]:
+    if not df_biezace.empty:
+        st.dataframe(df_biezace, use_container_width=True, hide_index=True)
+    else:
+        st.info("Brak aktywnych zadań.")
 
-with tabs[0]: st.markdown(stworz_tabele_html(df_biezace), unsafe_allow_html=True)
-with tabs[1]: st.markdown(stworz_tabele_html(df_zrealizowane), unsafe_allow_html=True)
-if len(tabs) > 2:
-    with tabs[2]: st.markdown(stworz_tabele_html(df_slawka), unsafe_allow_html=True)
+with zakladki_ui[1]:
+    if not df_zrealizowane.empty:
+        st.dataframe(df_zrealizowane, use_container_width=True, hide_index=True)
+    else:
+        st.info("Brak zrealizowanych zadań.")
+
+with zakladki_ui[2]:
+    if not df_slawka.empty:
+        st.dataframe(df_slawka, use_container_width=True, hide_index=True)
+    else:
+        st.info("Brak danych w zakładce Sławka.")
