@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (DODATKOWY ODSTĘP POD LOGO)
+# 1. KONFIGURACJA I STYLIZACJA (WIDOCZNOŚĆ ZAKŁADEK)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
@@ -26,16 +26,11 @@ st.markdown("""
         border-right: 5px solid #eab308 !important; 
     }
     
-    /* STYLIZACJA LOGO */
+    /* LOGO */
     .logo-box {
         text-align: center;
         margin-top: -30px !important;
-        margin-bottom: 20px !important; /* Odstęp pod logo */
-    }
-
-    /* KONTENER PRZYCISKÓW - OBNIŻENIE O 0.5 CM */
-    .button-container {
-        margin-top: 15px !important; /* Dodatkowe 15px odstępu (~0.5cm) */
+        margin-bottom: 20px !important;
     }
 
     /* PRZYCISKI W PANELU */
@@ -45,11 +40,22 @@ st.markdown("""
         height: 46px !important; margin-bottom: 5px !important;
     }
 
-    /* AKTYWNA ZAKŁADKA */
+    /* --- POPRAWIONE ZAKŁADKI (TABS) --- */
+    button[data-baseweb="tab"] {
+        font-size: 1.1rem !important; font-weight: 700 !important;
+        color: #1e293b !important; /* Ciemny tekst dla nieaktywnych */
+        background-color: #e2e8f0 !important; /* Wyraźne szare tło dla nieaktywnych */
+        border-radius: 8px 8px 0 0 !important; margin-right: 5px !important;
+        padding: 10px 25px !important; border: 1px solid #cbd5e1 !important;
+        opacity: 0.8; /* Lekka przezroczystość dla nieaktywnych */
+    }
+    
+    /* AKTYWNA ZAKŁADKA - KOLOR PANELU */
     button[data-baseweb="tab"][aria-selected="true"] {
         color: white !important;
         background-color: #1e293b !important; 
         border-bottom: 4px solid #eab308 !important; 
+        opacity: 1; /* Pełna widoczność dla aktywnej */
     }
 
     /* METRYKI PODSUMOWANIA */
@@ -141,11 +147,9 @@ df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    # WSTAWIANIE LOGO
     st.markdown(f'<div class="logo-box"><img src="{LOGO_URL}" width="200"></div>', unsafe_allow_html=True)
     
-    # KONTENER PRZYCISKÓW Z DODATKOWYM ODSTĘPEM (0.5 CM)
-    st.markdown('<div class="button-container"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="border-bottom: 1px solid #334155; margin: 5px 0 10px 0;"></div>', unsafe_allow_html=True)
     
     if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): st.info("Dodaj zadanie w Arkuszu.")
     if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True): st.cache_data.clear(); st.rerun()
