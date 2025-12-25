@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (ZOPTYMALIZOWANE ODSTĘPY)
+# 1. KONFIGURACJA I STYLIZACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=15000, key="global_refresh")
@@ -19,47 +19,18 @@ st.markdown("""
     <style>
     .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
-    
     .logo-container { text-align: center; margin-top: -35px !important; margin-bottom: 10px !important; }
     .logo-container img { width: 190px; cursor: pointer; }
-
-    /* NAGŁÓWKI SIDEBARA - ZREDUKOWANE ODSTĘPY */
-    .sidebar-divider { border-top: 1px solid #334155; margin: 5px 0; } /* Zmniejszony margines z 10 na 5 */
-    .sidebar-header { color: #eab308; font-size: 0.8rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; } /* Zmniejszony margines z 5 na 3 */
-
-    /* KOMPAKTOWE BOX ZADANIA */
-    .term-box {
-        background: #334155; 
-        padding: 4px 8px; 
-        border-radius: 6px; 
-        border-left: 4px solid #ef4444; 
-        margin-bottom: 3px; 
-        color: white; 
-        font-size: 0.7rem;
-        line-height: 1.1;
-    }
+    .sidebar-divider { border-top: 1px solid #334155; margin: 2px 0; }
+    .sidebar-header { color: #eab308; font-size: 0.8rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+    .term-box { background: #334155; padding: 4px 8px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 3px; color: white; font-size: 0.7rem; line-height: 1.1; }
     .term-date { color: #eab308; font-weight: bold; margin-right: 3px; }
-
-    /* METRYKI WYŚRODKOWANE */
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
     [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; padding: 10px !important; }
-
-    /* ZAKŁADKI */
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; margin-right: 5px; padding: 10px 25px !important; border: 1px solid #cbd5e1 !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
-
-    /* STOPKA SYSTEMOWA W SIDEBARZE */
-    .sidebar-footer {
-        text-align: center;
-        color: #94a3b8;
-        font-size: 0.75rem;
-        margin-top: 8px;
-        padding-top: 8px;
-        border-top: 1px solid #334155;
-    }
-
-    /* BELKA DOLNA ARKUSZA */
+    .sidebar-footer { text-align: center; color: #94a3b8; font-size: 0.75rem; margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155; }
     .main-sheet-footer { margin-top: 15px; padding: 5px 15px; background-color: #1e293b; border-top: 3px solid #eab308; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; color: white; }
     </style>
     """, unsafe_allow_html=True)
@@ -80,35 +51,43 @@ def pobierz_df(zakladka):
         return df[df.iloc[:, 0].astype(str).str.strip() != ""].copy()
     except: return pd.DataFrame()
 
-def generuj_kalendarz_html():
+def generuj_kalendarz_html(df_zadania):
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
-    html = f'<div style="background:white; padding:4px; border-radius:8px; border:2px solid #eab308; font-family:sans-serif;"><table style="width:100%; border-collapse:collapse; line-height:1; font-size:10px;"><thead><tr><th colspan="7" style="color:#1e293b; text-align:center; font-weight:800; border-bottom:1px solid #eee; padding-bottom:1px;">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
+    
+    # Wyciąganie dni z terminami z arkusza
+    dni_z_terminami = []
+    if not df_zadania.empty and 'DEADLINE' in df_zadania.columns:
+        df_zadania['DT_TMP'] = pd.to_datetime(df_zadania['DEADLINE'], dayfirst=True, errors='coerce')
+        dni_z_terminami = df_zadania[df_zadania['DT_TMP'].dt.month == now.month]['DT_TMP'].dt.day.tolist()
+
+    html = f'<div style="background:white; padding:4px; border-radius:8px; border:2px solid #eab308; font-family:sans-serif;"><table style="width:100%; border-collapse:collapse; line-height:1; font-size:10px;"><thead><tr><th colspan="7" style="color:#1e293b; text-align:center; font-weight:800; border-bottom:1px solid #eee; padding-bottom:1px;">{calendar.month_name[now.month].upper()}</th></tr><tr style="color:#64748b; font-size:8px;"><th>PN</th><th>WT</th><th>ŚR</th><th>CZ</th><th>PT</th><th>SO</th><th>ND</th></tr></thead><tbody>'
     for week in cal:
         html += "<tr>"
         for day in week:
-            bg = "#eab308" if day == now.day else "transparent"
-            html += f'<td style="text-align:center; padding:1px; font-weight:700; background-color:{bg}; border-radius:4px;">{day if day != 0 else ""}</td>'
+            if day == 0: html += "<td></td>"
+            else:
+                bg = "#eab308" if day == now.day else "transparent"
+                # Jeśli dzień ma termin w arkuszu, kolorujemy numer na czerwono i dodajemy obramowanie
+                color = "#ef4444" if day in dni_z_terminami else "#1e293b"
+                border = "1px solid #ef4444" if day in dni_z_terminami else "none"
+                html += f'<td style="text-align:center; padding:1px; font-weight:700; background-color:{bg}; color:{color}; border:{border}; border-radius:4px;">{day}</td>'
         html += "</tr>"
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 3. LOGIKA I SIDEBAR (ZREDUKOWANE ODSTĘPY)
+# 3. LOGIKA I SIDEBAR
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 if u == "Andrzej" and k == "8800": zalogowany = "Andrzej Walczak"
 else: st.error("BŁĄD LOGOWANIA"); st.stop()
 
-df_biez_side = pobierz_df("Zadania bieżące")
+df_biez_wszystkie = pobierz_df("Zadania bieżące")
 df_chat = pobierz_df("CZAT")
-
-has_new = False
-if not df_chat.empty and 'ODBIORCA' in df_chat.columns:
-    has_new = not df_chat[(df_chat['ODBIORCA'] == "Andrzej") & (df_chat['STATUS'] == "NIEPRZECZYTANE")].empty
+has_new = not df_chat[(df_chat['ODBIORCA'] == "Andrzej") & (df_chat['STATUS'] == "NIEPRZECZYTANE")].empty if not df_chat.empty and 'ODBIORCA' in df_chat.columns else False
 
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><a href="?u={u}&k={k}" target="_self"><img src="{LOGO_URL}"></a></div>', unsafe_allow_html=True)
-    
     st.markdown('<div class="sidebar-header" style="margin-top:-5px;">🧭 Nawigacja</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
@@ -118,32 +97,22 @@ with st.sidebar:
     
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-header">📅 Kalendarz</div>', unsafe_allow_html=True)
-    st.components.v1.html(generuj_kalendarz_html(), height=125) # Obniżono wysokość ramki z 135 na 125
+    # PRZEKAZUJEMY DF DO KALENDARZA ABY ZAZNACZYŁ TERMINY
+    st.components.v1.html(generuj_kalendarz_html(df_biez_wszystkie), height=125)
     
-    # TUTAJ ZMNIEJSZONO ODLEGŁOŚĆ O 3MM (poprzez redukcję marginesów w dividerze)
-    st.markdown('<div class="sidebar-divider" style="margin:2px 0;"></div>', unsafe_allow_html=True) 
-    
+    st.markdown('<div class="sidebar-divider" style="margin:2px 0;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-header">🕒 Nadchodzące (5)</div>', unsafe_allow_html=True)
-    if not df_biez_side.empty:
-        for _, r in df_biez_side.head(5).iterrows():
+    if not df_biez_wszystkie.empty:
+        for _, r in df_biez_wszystkie.head(5).iterrows():
             st.markdown(f'<div class="term-box"><span class="term-date">{r.get("DEADLINE","")}</span>: {str(r.get("TREŚĆ ZADANIA",""))[:35]}...</div>', unsafe_allow_html=True)
     
-    st.markdown(f"""
-        <div class="sidebar-footer">
-            Zalogowany: <b>{zalogowany}</b><br>
-            System Zarządzania &copy; 2025
-        </div>
-    """, unsafe_allow_html=True)
-
-    if has_new:
-        st.markdown('<p style="color:#ef4444; font-weight:900; text-align:center; animation: blinker 1.5s linear infinite; margin-top:2px;">🔔 NOWA WIADOMOŚĆ!</p>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sidebar-footer">Zalogowany: <b>{zalogowany}</b><br>System Zarządzania &copy; 2025</div>', unsafe_allow_html=True)
 
 # ==========================================================
 # 4. WIDOK GŁÓWNY
 # ==========================================================
 chat_tab_label = "💬 CZAT 🔴" if has_new else "💬 CZAT"
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", chat_tab_label])
-
 now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
 df_zrealizowane = pobierz_df("Zadania zrealizowane")
 
