@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (WERSJA ZBALANSOWANA)
+# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA WIDOCZNOŚCI ARKUSZA)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -23,7 +23,6 @@ st.markdown("""
     .logo-container { text-align: center; margin-top: -65px !important; margin-bottom: 20px !important; }
     .logo-container img { width: 190px; }
     
-    /* ETYKIETA ZALOGOWANEGO - POWRÓT DO WYRAŹNEJ FORMALNOŚCI */
     .user-info-footer {
         background-color: #eab308 !important;
         color: #1e293b !important;
@@ -34,42 +33,17 @@ st.markdown("""
         text-align: center;
         margin-top: 15px;
         border: 2px solid white;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
 
-    /* KALENDARZ - POWRÓT DO CZYTELNOŚCI */
-    .cal-container { 
-        background: white; 
-        padding: 6px; 
-        border-radius: 8px; 
-        border: 2px solid #eab308; 
-        width: 100%;
-        margin-bottom: 10px;
-    }
+    .cal-container { background: white; padding: 6px; border-radius: 8px; border: 2px solid #eab308; width: 100%; margin-bottom: 10px; }
     .cal-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 10px; color: #1e293b; }
-    .cal-table td { 
-        text-align: center; 
-        padding: 3px 1px; 
-        font-weight: 700; 
-        border-radius: 3px; 
-    }
+    .cal-table td { text-align: center; padding: 3px 1px; font-weight: 700; border-radius: 3px; }
     .day-today { background-color: #eab308 !important; }
     .day-task { color: #ef4444 !important; border: 1px solid #ef4444 !important; }
 
-    /* KAFELKI ZADAŃ - ZBALANSOWANA WYSOKOŚĆ */
-    .term-box { 
-        background: #334155; 
-        padding: 12px 10px; 
-        border-radius: 6px; 
-        border-left: 4px solid #ef4444; 
-        margin-bottom: 8px; 
-        color: white; 
-        font-size: 0.72rem; 
-        line-height: 1.3;
-    }
+    .term-box { background: #334155; padding: 12px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 8px; color: white; font-size: 0.72rem; }
     .sidebar-header { color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 8px; }
     
-    /* METRYKI I TABELE */
     [data-testid="stMetricValue"] > div { color: #eab308 !important; font-weight: 900 !important; font-size: 1.8rem !important; }
     [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; }
     </style>
@@ -100,12 +74,11 @@ def pobierz_arkusz(nazwa):
 # ==========================================================
 # 3. SIDEBAR
 # ==========================================================
-df_biez = pobierz_arkusz("Zadania bieżące")
+df_biez_full = pobierz_arkusz("Zadania bieżące")
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane")
 
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><img src="{LOGO_URL}"></div>', unsafe_allow_html=True)
-    
     c1, c2 = st.columns(2)
     with c1: st.button("➕ DODAJ", use_container_width=True)
     with c2: 
@@ -115,8 +88,8 @@ with st.sidebar:
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_taskami = set()
-    if not df_biez.empty:
-        df_f = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
+    if not df_biez_full.empty:
+        df_f = df_biez_full if zalogowany == "Andrzej" else df_biez_full[df_biez_full['OSOBA'].str.contains(zalogowany, na=False)]
         deadlines = pd.to_datetime(df_f['DEADLINE'], errors='coerce', dayfirst=True)
         dni_z_taskami = set(deadlines[(deadlines.dt.month == now.month) & (deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
@@ -133,8 +106,8 @@ with st.sidebar:
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
-    if not df_biez.empty:
-        df_side = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
+    if not df_biez_full.empty:
+        df_side = df_biez_full if zalogowany == "Andrzej" else df_biez_full[df_biez_full['OSOBA'].str.contains(zalogowany, na=False)]
         for _, r in df_side.head(4).iterrows():
             dni_v = pd.to_numeric(r.get('DNI', 0), errors='coerce')
             st.markdown(f'<div class="term-box">{"🔥" if dni_v >= -2 else "🟢"} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
@@ -143,14 +116,15 @@ with st.sidebar:
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {u_name}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY
+# 4. WIDOK GŁÓWNY (PRZYWRÓCONY ARKUSZ)
 # ==========================================================
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "💬 CZAT"])
 now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
 
-count_zrealizowane = 0
+# Licznik Zrealizowanych (z Kolumny A)
+count_zreal = 0
 if not df_zreal_full.empty:
-    count_zrealizowane = df_zreal_full.iloc[:, 0].replace('', pd.NA).dropna().count()
+    count_zreal = df_zreal_full.iloc[:, 0].replace('', pd.NA).dropna().count()
 
 for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
     with tabs[i]:
@@ -160,20 +134,20 @@ for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy
         if not df_raw.empty:
             count_razem = df_raw.iloc[:, 0].replace('', pd.NA).dropna().count()
             df_raw['DNI_N'] = pd.to_numeric(df_raw['DNI'], errors='coerce').fillna(-999)
+            
             m1.metric("📋 Razem", int(count_razem))
             m2.metric("🔥 Pilne (-2+)", len(df_raw[df_raw['DNI_N'] >= -2]))
+            m3.metric("✅ Zrealizowane", int(count_zreal))
+            m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
             
-            def apply_icon(row):
-                if pd.isna(row['TREŚĆ ZADANIA']) or str(row['TREŚĆ ZADANIA']).strip() == "": return ""
-                return f"{('🔥 ' if row['DNI_N'] >= -2 else '🟢 ')}{row['TREŚĆ ZADANIA']}"
+            # Dodanie ikon do treści
+            df_display = df_raw.copy()
+            df_display['TREŚĆ ZADANIA'] = df_display.apply(lambda r: f"{('🔥 ' if r['DNI_N'] >= -2 else '🟢 ')}{r['TREŚĆ ZADANIA']}", axis=1)
             
-            df_v = df_raw.copy()
-            df_v['TREŚĆ ZADANIA'] = df_v.apply(apply_icon, axis=1)
-            st.data_editor(df_v.drop(columns=['DNI_N']), use_container_width=True, hide_index=True, height=800)
+            # WYŚWIETLANIE ARKUSZA - POWRÓT
+            st.data_editor(df_display.drop(columns=['DNI_N']), use_container_width=True, hide_index=True, height=800)
         else:
             m1.metric("📋 Razem", 0); m2.metric("🔥 Pilne (-2+)", 0)
-        
-        m3.metric("✅ Zrealizowane", int(count_zrealizowane))
-        m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
+            st.info("Brak zadań w tym arkuszu.")
 
 st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now_pl.strftime("%d.%m.%Y | %H:%M")}</span></div>', unsafe_allow_html=True)
