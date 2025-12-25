@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (WYŚRODKOWANIE I KAFELKI)
+# 1. KONFIGURACJA I STYLIZACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
@@ -30,7 +30,7 @@ st.markdown("""
         height: 46px !important; margin-bottom: 5px !important;
     }
 
-    /* WYŚRODKOWANIE LICZB W KAFELKACH (METRYKACH) */
+    /* WYŚRODKOWANIE LICZB W KAFELKACH */
     [data-testid="stMetricValue"] > div { 
         display: flex !important; 
         justify-content: center !important; 
@@ -147,7 +147,7 @@ with st.sidebar:
     st.markdown(f'<div class="sidebar-footer">Zalogowany: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (ZAKŁADKI)
+# 4. WIDOK GŁÓWNY (POPRAWIONE ZAKŁADKI)
 # ==========================================================
 kat_list = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "🔴 CZAT"]
 tabs = st.tabs(kat_list)
@@ -158,7 +158,7 @@ for i, kat in enumerate(kat_list[:-1]):
         if not df.empty:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
             
-            # CZTERY WYŚRODKOWANE KAFELKI W JEDNYM RZĘDZIE
+            # CZTERY WYŚRODKOWANE KAFELKI
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("📋 Razem", len(df))
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
