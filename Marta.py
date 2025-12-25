@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (PEŁNA WIDOCZNOŚĆ)
+# 1. KONFIGURACJA I STYLIZACJA (MAKSYMALNA WIDOCZNOŚĆ)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -19,43 +19,47 @@ st.markdown("""
     <style>
     .block-container { padding-top: 0.5rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
+    
+    /* LOGO */
     .logo-container { text-align: center; margin-top: -65px !important; margin-bottom: 25px !important; }
     .logo-container img { width: 200px; }
     
-    /* --- PRZYPIĘTA ETYKIETA UŻYTKOWNIKA --- */
+    /* --- PRZYPIĘTY I WIDOCZNY PASEK ZALOGOWANEGO --- */
     .sticky-user-badge {
         position: fixed;
-        bottom: 20px;
+        bottom: 15px;
         left: 15px;
-        width: 274px;
-        background-color: #eab308;
+        width: 270px;
+        background-color: #eab308 !important;
         color: #1e293b !important;
-        padding: 8px 10px;
+        padding: 10px;
         border-radius: 8px;
         font-weight: 900;
-        font-size: 0.8rem;
+        font-size: 0.85rem;
         text-align: center;
-        z-index: 10000;
+        z-index: 1000000 !important;
         border: 2px solid white;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.6);
     }
 
-    /* CZAT STYLE */
-    .chat-bubble-container { display: flex; flex-direction: column; gap: 8px; padding: 15px; background: #f1f5f9; border-radius: 12px; margin-bottom: 20px; border: 1px solid #cbd5e1; }
-    .bubble { padding: 10px 15px; border-radius: 15px; font-size: 13px; max-width: 80%; color: black !important; }
-    .bubble-me { align-self: flex-end; background-color: #eab308; border-bottom-right-radius: 2px; }
-    .bubble-other { align-self: flex-start; background-color: white; border-bottom-left-radius: 2px; border: 1px solid #cbd5e1; }
-
+    /* METRYKI */
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 1.8rem !important; }
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
     [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; padding: 5px 10px !important; }
+    
+    /* ZAKŁADKI */
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 25px !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
-    .term-box { background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.72rem; }
-    .sidebar-header { color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 8px; }
     
-    /* ODSTĘP NA DOLE SIDEBARA */
-    .sidebar-spacer { height: 80px; }
+    /* CZAT */
+    .chat-bubble-container { display: flex; flex-direction: column; gap: 8px; padding: 15px; background: #f1f5f9; border-radius: 12px; margin-bottom: 20px; border: 1px solid #cbd5e1; }
+    .bubble { padding: 10px 15px; border-radius: 15px; font-size: 13px; max-width: 80%; color: black !important; }
+    .bubble-me { align-self: flex-end; background-color: #eab308; }
+    .bubble-other { align-self: flex-start; background-color: white; border: 1px solid #cbd5e1; }
+    
+    .term-box { background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.72rem; }
+    .sidebar-header { color: #eab308; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 10px; }
+    .sidebar-spacer { height: 100px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -82,7 +86,7 @@ def pobierz_df(zakladka):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. KALENDARZ I SIDEBAR
+# 3. SIDEBAR (LOGIKA I RENDEROWANIE)
 # ==========================================================
 df_biez = pobierz_df("Zadania bieżące")
 df_chat = pobierz_df("CZAT")
@@ -105,13 +109,12 @@ def generuj_kalendarz_html(df_zadania, user):
             else:
                 bg = "#eab308" if day == now.day else "transparent"
                 color = "#ef4444" if day in dni_z_terminami else "#1e293b"
-                border = "1px solid #ef4444" if day in dni_z_terminami else "none"
-                html += f'<td style="text-align:center; padding:2px; font-weight:700; background-color:{bg}; color:{color}; border:{border}; border-radius:4px;">{day}</td>'
+                html += f'<td style="text-align:center; padding:2px; font-weight:700; background-color:{bg}; color:{color}; border:{"1px solid #ef4444" if day in dni_z_terminami else "none"}; border-radius:4px;">{day}</td>'
         html += "</tr>"
     return html + "</tbody></table></div>"
 
-# --- RENDEROWANIE SIDEBARA ---
-st.markdown(f'<div class="sticky-user-badge">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
+# --- WYMUSZENIE WIDOCZNOŚCI ETYKIETY ---
+st.markdown(f'<div class="sticky-user-badge">👤 ZALOGOWANO: {zalogowany.upper()} Walczak</div>' if zalogowany == "Andrzej" else f'<div class="sticky-user-badge">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><img src="{LOGO_URL}"></div>', unsafe_allow_html=True)
@@ -120,11 +123,9 @@ with st.sidebar:
     with c1: st.button("➕ DODAJ", use_container_width=True)
     with c2: 
         if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
-    
-    st.markdown('<div style="border-top:1px solid #334155; margin:8px 0;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="border-top:1px solid #334155; margin:10px 0;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-header">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
     st.components.v1.html(generuj_kalendarz_html(df_biez, zalogowany), height=175)
-    
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_biez.empty:
         df_side = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
@@ -153,7 +154,7 @@ for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy S
         m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
 
 with tabs[3]:
-    st.subheader("💬 Komunikacja Zespołu")
+    st.subheader("💬 Messenger Firmowy")
     if not df_chat.empty:
         hist = df_chat[(df_chat['NADAWCA'] == zalogowany) | (df_chat['ODBIORCA'] == zalogowany)].tail(15)
         c_html = '<div class="chat-bubble-container">'
