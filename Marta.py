@@ -31,6 +31,19 @@ st.markdown("""
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
 
     .main-sheet-footer { margin-top: 15px; padding: 5px 15px; background-color: #1e293b; border-top: 3px solid #eab308; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; color: white; }
+    
+    /* STYL LISTY TERMINÓW */
+    .term-box {
+        background: #334155; 
+        padding: 6px 8px; 
+        border-radius: 6px; 
+        border-left: 4px solid #ef4444; 
+        margin-bottom: 5px; 
+        color: white; 
+        font-size: 0.72rem;
+        line-height: 1.2;
+    }
+    .term-date { color: #eab308; font-weight: bold; margin-right: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -71,7 +84,7 @@ def generuj_kalendarz_html():
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 3. LOGIKA I SIDEBAR (PRZYWRÓCONY KALENDARZ)
+# 3. LOGIKA I SIDEBAR (WIĘCEJ TERMINÓW)
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 if u == "Andrzej" and k == "8800": zalogowany = u
@@ -84,22 +97,32 @@ if not df_chat.empty and 'ODBIORCA' in df_chat.columns:
 
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><a href="?u={u}&k={k}" target="_self"><img src="{LOGO_URL}"></a></div>', unsafe_allow_html=True)
-    st.markdown('<div style="border-bottom:1px solid #334155; margin:10px 0;"></div>', unsafe_allow_html=True)
     
-    if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True):
-        st.session_state.show_form = True
-
-    if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True): st.cache_data.clear(); st.rerun()
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("➕ DODAJ", use_container_width=True): st.session_state.show_form = True
+    with col_btn2:
+        if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
     
-    # --- PRZYWRÓCONY KALENDARZ ---
     st.components.v1.html(generuj_kalendarz_html(), height=155)
     
-    # TERMINY W SIDEBARZE
-    st.markdown("<p style='color:white; font-size:0.8rem; font-weight:bold; margin-bottom:5px;'>📅 Nadchodzące:</p>", unsafe_allow_html=True)
+    # ZWIĘKSZONA LISTA TERMINÓW (max 8 zadań)
+    st.markdown("<p style='color:white; font-size:0.85rem; font-weight:bold; margin: 10px 0 5px 0;'>📅 Nadchodzące zadania:</p>", unsafe_allow_html=True)
     df_biez = pobierz_df("Zadania bieżące")
     if not df_biez.empty:
-        for _, r in df_biez.head(2).iterrows():
-            st.markdown(f"<div style='background:#334155; padding:5px; border-radius:5px; border-left:3px solid #ef4444; margin-bottom:3px; color:white; font-size:0.7rem;'>{r['DEADLINE']}: {r['TREŚĆ ZADANIA'][:25]}...</div>", unsafe_allow_html=True)
+        # Sortowanie po dacie, jeśli kolumna DEADLINE istnieje
+        try:
+            df_biez['DT_SORT'] = pd.to_datetime(df_biez['DEADLINE'], dayfirst=True, errors='coerce')
+            df_biez = df_biez.sort_values(by='DT_SORT').dropna(subset=['DT_SORT'])
+        except: pass
+        
+        for _, r in df_biez.head(8).iterrows():
+            st.markdown(f"""
+                <div class="term-box">
+                    <span class="term-date">{r['DEADLINE']}</span><br>
+                    {r['TREŚĆ ZADANIA'][:45]}...
+                </div>
+            """, unsafe_allow_html=True)
 
     if has_new:
         st.markdown('<p style="color:#ef4444; font-weight:900; text-align:center; animation: blinker 1.5s linear infinite;">🔔 NOWA WIADOMOŚĆ!</p>', unsafe_allow_html=True)
@@ -162,5 +185,4 @@ with tabs[3]:
         t_input = st.chat_input("Napisz...")
         if t_input and wyslij_wiadomosc(zalogowany, odbiorca, t_input): st.rerun()
 
-# --- BELKA DOLNA ---
 st.markdown(f'<div class="main-sheet-footer"><div style="color:#eab308; font-weight:800; font-size:0.8rem;">UZDROWISKO CIECHOCINEK S.A.</div><div style="font-size:0.7rem; color:#94a3b8;">{now_pl.strftime("%d.%m.%Y | %H:%M:%S")}</div></div>', unsafe_allow_html=True)
