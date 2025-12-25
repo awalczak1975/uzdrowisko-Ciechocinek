@@ -49,7 +49,17 @@ st.markdown("""
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; margin-right: 5px; padding: 10px 25px !important; border: 1px solid #cbd5e1 !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
 
-    /* STOPKA */
+    /* STOPKA SYSTEMOWA W SIDEBARZE */
+    .sidebar-footer {
+        text-align: center;
+        color: #94a3b8;
+        font-size: 0.75rem;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #334155;
+    }
+
+    /* BELKA DOLNA ARKUSZA */
     .main-sheet-footer { margin-top: 15px; padding: 5px 15px; background-color: #1e293b; border-top: 3px solid #eab308; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; color: white; }
     </style>
     """, unsafe_allow_html=True)
@@ -83,10 +93,10 @@ def generuj_kalendarz_html():
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 3. LOGIKA I SIDEBAR (LIMIT 5 ZADAŃ)
+# 3. LOGIKA I SIDEBAR (Z INFORMACJĄ O ZALOGOWANYM)
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
-if u == "Andrzej" and k == "8800": zalogowany = u
+if u == "Andrzej" and k == "8800": zalogowany = "Andrzej Walczak"
 else: st.error("BŁĄD LOGOWANIA"); st.stop()
 
 df_biez_side = pobierz_df("Zadania bieżące")
@@ -94,7 +104,7 @@ df_chat = pobierz_df("CZAT")
 
 has_new = False
 if not df_chat.empty and 'ODBIORCA' in df_chat.columns:
-    has_new = not df_chat[(df_chat['ODBIORCA'] == zalogowany) & (df_chat['STATUS'] == "NIEPRZECZYTANE")].empty
+    has_new = not df_chat[(df_chat['ODBIORCA'] == "Andrzej") & (df_chat['STATUS'] == "NIEPRZECZYTANE")].empty
 
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><a href="?u={u}&k={k}" target="_self"><img src="{LOGO_URL}"></a></div>', unsafe_allow_html=True)
@@ -108,21 +118,24 @@ with st.sidebar:
     
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-header">📅 Kalendarz</div>', unsafe_allow_html=True)
-    st.components.v1.html(generuj_kalendarz_html(), height=135) # Zmniejszona wysokość
+    st.components.v1.html(generuj_kalendarz_html(), height=135)
     
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
-    
-    # --- LIMIT DO 5 ZADAŃ DLA WYGODY ---
     st.markdown('<div class="sidebar-header">🕒 Nadchodzące (5)</div>', unsafe_allow_html=True)
     if not df_biez_side.empty:
         for _, r in df_biez_side.head(5).iterrows():
             st.markdown(f'<div class="term-box"><span class="term-date">{r.get("DEADLINE","")}</span>: {str(r.get("TREŚĆ ZADANIA",""))[:35]}...</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<p style="color:#94a3b8; font-size:0.7rem;">Brak zadań.</p>', unsafe_allow_html=True)
+    
+    # --- PRZYWRÓCONA INFORMACJA O ZALOGOWANYM ---
+    st.markdown(f"""
+        <div class="sidebar-footer">
+            Zalogowany: <b>{zalogowany}</b><br>
+            System Zarządzania &copy; 2025
+        </div>
+    """, unsafe_allow_html=True)
 
     if has_new:
         st.markdown('<p style="color:#ef4444; font-weight:900; text-align:center; animation: blinker 1.5s linear infinite; margin-top:5px;">🔔 NOWA WIADOMOŚĆ!</p>', unsafe_allow_html=True)
-        st.markdown('<audio autoplay><source src="https://www.soundjay.com/buttons/beep-07a.mp3"></audio>', unsafe_allow_html=True)
 
 # ==========================================================
 # 4. WIDOK GŁÓWNY
@@ -138,14 +151,11 @@ for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy S
         df = pobierz_df(kat)
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("📋 Razem", len(df))
-        
         if not df.empty and 'DNI' in df.columns:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
-        
         m3.metric("✅ Zrealizowane", len(df_zrealizowane))
         m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
-        
         if not df.empty:
             st.data_editor(df, use_container_width=True, hide_index=True, height=550)
 
