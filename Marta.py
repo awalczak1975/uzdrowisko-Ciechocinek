@@ -39,16 +39,26 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. UŻYTKOWNICY I LOGOWANIE
+# 2. ZAKTUALIZOWANA BAZA UŻYTKOWNIKÓW
 # ==========================================================
-USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Pola": "5555"}
+USERS = {
+    "Andrzej": "8800",
+    "Marta": "1111",
+    "Sławek": "2222",
+    "Agata": "3333",
+    "Rafał": "4444",
+    "Dagmara": "5555",
+    "Ewelina": "6666",
+    "Ireneusz": "7777"
+}
+
 u_param = st.query_params.get("u", "")
 k_param = st.query_params.get("k", "")
 
 if u_param in USERS and USERS[u_param] == k_param:
     zalogowany = u_param
 else:
-    st.error("BŁĄD AUTORYZACJI"); st.stop()
+    st.error("BŁĄD AUTORYZACJI: Nieprawidłowy link."); st.stop()
 
 # ==========================================================
 # 3. FUNKCJE TECHNICZNE
@@ -72,14 +82,10 @@ def generuj_kalendarz_html(df_zadania, user):
     dni_z_terminami = []
     
     if not df_zadania.empty and 'DEADLINE' in df_zadania.columns:
-        # FILTRACJA PERSONALNA: Andrzej widzi wszystko, inni tylko swoje
-        if user != "Andrzej":
-            df_filtered = df_zadania[df_zadania['OSOBA'].str.contains(user, na=False)].copy()
-        else:
-            df_filtered = df_zadania.copy()
-            
-        df_filtered['DT_TMP'] = pd.to_datetime(df_filtered['DEADLINE'], dayfirst=True, errors='coerce')
-        dni_z_terminami = df_filtered[df_filtered['DT_TMP'].dt.month == now.month]['DT_TMP'].dt.day.tolist()
+        # Filtracja personalna terminów (Andrzej widzi wszystko)
+        df_f = df_zadania if user == "Andrzej" else df_zadania[df_zadania['OSOBA'].str.contains(user, na=False)]
+        df_f['DT_TMP'] = pd.to_datetime(df_f['DEADLINE'], dayfirst=True, errors='coerce')
+        dni_z_terminami = df_f[df_f['DT_TMP'].dt.month == now.month]['DT_TMP'].dt.day.tolist()
 
     html = f'<div style="background:white; padding:8px; border-radius:8px; border:2px solid #eab308; font-family:sans-serif;"><table style="width:100%; border-collapse:collapse; line-height:1.2; font-size:11px;"><thead><tr><th colspan="7" style="color:#1e293b; text-align:center; font-weight:800; border-bottom:1px solid #eee; padding-bottom:5px;">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
     for week in cal:
@@ -95,7 +101,7 @@ def generuj_kalendarz_html(df_zadania, user):
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 4. LOGIKA I SIDEBAR
+# 4. SIDEBAR
 # ==========================================================
 df_biez = pobierz_df("Zadania bieżące")
 df_zreal = pobierz_df("Zadania zrealizowane")
@@ -116,12 +122,10 @@ with st.sidebar:
     
     st.markdown('<div style="border-top: 1px solid #334155; margin: 8px 0;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-header">📅 Twoje Terminy</div>', unsafe_allow_html=True)
-    # Kalendarz z filtrem użytkownika
     st.components.v1.html(generuj_kalendarz_html(df_biez, zalogowany), height=175)
     
     st.markdown('<div class="sidebar-header">🕒 Nadchodzące Twoje</div>', unsafe_allow_html=True)
     if not df_biez.empty:
-        # Filtracja listy pod kalendarzem
         df_side = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
         for _, r in df_side.head(5).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:35]}...</div>', unsafe_allow_html=True)
