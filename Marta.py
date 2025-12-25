@@ -8,13 +8,10 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (ZMNIEJSZONE ODSTĘPY)
+# 1. KONFIGURACJA I STYLIZACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
-
-# Ścieżka do Twojego logo na GitHub
-LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20(1).png"
 
 st.markdown("""
     <style>
@@ -26,18 +23,11 @@ st.markdown("""
         border-right: 5px solid #eab308 !important; 
     }
     
-    /* STYLIZACJA LOGO - MINIMALNE MARGINESY */
-    .sidebar-logo-container {
-        text-align: center;
-        margin-top: -20px; /* Przesunięcie logo wyżej */
-        margin-bottom: -10px; /* Zmniejszenie odstępu pod logo */
-    }
-
-    /* PRZYCISKI W PANELU */
+    /* PRZYCISKI */
     [data-testid="stSidebar"] div.stButton > button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; font-weight: 600 !important;
-        height: 46px !important; margin-bottom: 5px !important;
+        height: 46px !important; margin-bottom: 8px !important;
     }
 
     /* AKTYWNA ZAKŁADKA */
@@ -47,16 +37,15 @@ st.markdown("""
         border-bottom: 4px solid #eab308 !important; 
     }
 
-    /* METRYKI PODSUMOWANIA */
+    /* METRYKI */
     [data-testid="stMetric"] { 
         background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
         border-radius: 10px !important; text-align: center !important; 
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; }
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; }
 
-    /* STOPKA NA DOLE */
+    /* STOPKA */
     .sidebar-footer { position: fixed; bottom: 10px; width: 240px; text-align: center; color: #94a3b8; font-size: 0.75rem; }
     </style>
     """, unsafe_allow_html=True)
@@ -128,29 +117,34 @@ df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    # LOGO Z MNIEJSZYM ODSTĘPEM
-    st.markdown(f'<div class="sidebar-logo-container"><img src="{LOGO_URL}" width="180"></div>', unsafe_allow_html=True)
+    # --- LOGO NA SAMEJ GÓRZE ---
+    st.markdown("""
+        <div style="text-align:center; padding-bottom: 10px;">
+            <div style="color:#eab308; font-size: 24px; font-weight: 900; line-height: 0.8;">UZDROWISKO</div>
+            <div style="color:#0ea5e9; font-size: 16px; font-weight: 700; letter-spacing: 2px;">CIECHOCINEK</div>
+            <div style="width: 50px; height: 3px; background: #eab308; margin: 8px auto 0;"></div>
+        </div>
+    """, unsafe_allow_html=True)
     
-    # Cienki separator zamiast grubego st.divider()
-    st.markdown('<div style="border-bottom: 1px solid #334155; margin: 10px 0;"></div>', unsafe_allow_html=True)
+    st.divider()
     
-    if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): st.info("Dodaj zadanie w Arkuszu.")
+    if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): st.info("Dodaj zadanie w Arkuszu Google.")
     if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True): st.cache_data.clear(); st.rerun()
     
     st.components.v1.html(generuj_kalendarz_html(df_total), height=195)
     
-    st.markdown("<p style='color:white; font-weight:bold; margin-bottom:5px; font-size:0.9rem;'>📅 Nadchodzące terminy:</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:white; font-weight:bold; margin-bottom:5px;'>📅 Nadchodzące terminy:</p>", unsafe_allow_html=True)
     df_total['DNI_N'] = pd.to_numeric(df_total['DNI'], errors='coerce').fillna(-999)
-    nadchodzace = df_total[df_total['DNI_N'] >= -2].sort_values(by='DEADLINE').head(3)
+    nadchodzace = df_total[df_total['DNI_N'] >= -2].sort_values(by='DEADLINE').head(4)
     
     if not nadchodzace.empty:
         for _, r in nadchodzace.iterrows():
-            st.markdown(f"<div style='background-color:#334155; padding:8px; border-radius:8px; border-left:4px solid #ef4444; margin-bottom:6px;'><p style='color:white; font-size:0.8rem; margin:0;'><b>{r['DEADLINE']}</b>: {r['TREŚĆ ZADANIA']}</p></div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='background-color:#334155; padding:8px; border-radius:8px; border-left:4px solid #ef4444; margin-bottom:6px;'><p style='color:white; font-size:0.85rem; margin:0;'><b>{r['DEADLINE']}</b>: {r['TREŚĆ ZADANIA']}</p></div>", unsafe_allow_html=True)
 
     st.markdown(f'<div class="sidebar-footer">Zalogowany: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY
+# 4. WIDOK GŁÓWNY (ZAKŁADKI)
 # ==========================================================
 kat_list = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "🔴 CZAT"]
 tabs = st.tabs(kat_list)
