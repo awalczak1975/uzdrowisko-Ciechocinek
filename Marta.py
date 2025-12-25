@@ -149,15 +149,24 @@ zakladka_nazwa = "Zadania bieżące" if st.session_state['widok'] == 'biezace' e
 df = pobierz_dane(zakladka_nazwa)
 
 if not df.empty:
+    # 1. Usuwanie pustych wierszy
     df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
 
+    # 2. Sortowanie wg daty (Termin to zazwyczaj 3 kolumna - indeks 2)
+    if 'TERMIN' in df.columns:
+        # Konwersja na format daty dla potrzeb sortowania
+        df['temp_date'] = pd.to_datetime(df['TERMIN'], dayfirst=True, errors='coerce')
+        # Sortowanie od najstarszej (zaległej) daty
+        df = df.sort_values(by='temp_date', ascending=True).drop(columns=['temp_date'])
+
+    # 3. Filtrowanie uprawnień
     if not czy_admin:
         if zalogowany_uzytkownik == "Sławek":
             df = df[df['OSOBA'] == "Sławek"]
         else:
             df = df[df['OSOBA'] != "Sławek"]
 
-    # Metryki
+    # 4. Metryki
     m1, m2, m3 = st.columns(3)
     m1.metric("📋 Razem", len(df))
     
@@ -169,20 +178,15 @@ if not df.empty:
         
     m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
 
-    # --- KONFIGURACJA KOLUMN (Wypośrodkowanie kolumny DNI) ---
+    # 5. Tabela z konfiguracją (środkowanie DNI)
     st.data_editor(
         df, 
         use_container_width=True, 
         hide_index=True, 
         height=650,
         column_config={
-            "DNI": st.column_config.Column(
-                "DNI",
-                help="Liczba dni do zakończenia (-2 oznacza 2 dni do terminu)",
-                width="small",
-                alignment="center"  # WYPOŚRODKOWANIE
-            ),
-            "DNI_N": None  # Ukrywamy kolumnę techniczną
+            "DNI": st.column_config.Column("DNI", width="small", alignment="center"),
+            "DNI_N": None 
         }
     )
 else:
