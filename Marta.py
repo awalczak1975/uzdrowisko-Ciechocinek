@@ -82,7 +82,7 @@ def generuj_kalendarz_html(df_zadania, user):
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 4. SIDEBAR
+# 4. SIDEBAR (GRAFIKA OGIEŃ 🔥)
 # ==========================================================
 df_biez = pobierz_df_stabilnie("Zadania bieżące")
 df_zreal_count = pobierz_df_stabilnie("Zadania zrealizowane")
@@ -107,13 +107,13 @@ with st.sidebar:
         for _, r in df_side.head(5).iterrows():
             try:
                 dni_val = pd.to_numeric(r.get('DNI', 0), errors='coerce')
-                # SPÓJNA LOGIKA: Pilne to -2 i więcej
-                status_icon = "🔴" if dni_val >= -2 else "🟢"
+                # ZAMIANA 🔴 NA 🔥 DLA SPÓJNOŚCI
+                status_icon = "🔥" if dni_val >= -2 else "🟢"
             except: status_icon = "⚪"
             st.markdown(f'<div class="term-box">{status_icon} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:32]}...</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 5. WIDOK GŁÓWNY (SPÓJNOŚĆ EMOTEK Z NAGŁÓWKIEM)
+# 5. WIDOK GŁÓWNY (GRAFIKA OGIEŃ 🔥 W TABELI)
 # ==========================================================
 chat_label = "💬 CZAT 🔴" if has_new else "💬 CZAT"
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", chat_label])
@@ -126,21 +126,19 @@ for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy S
         m1.metric("📋 Razem", len(df))
         
         if not df.empty and 'DNI' in df.columns:
-            # Konwersja na liczby dla precyzyjnych obliczeń
             df['DNI_NUM'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
             
-            # Licznik Pilne zgodny z grafiką (-2+)
+            # Licznik Pilne
             pilne_count = len(df[df['DNI_NUM'] >= -2])
             m2.metric("🔥 Pilne (-2+)", pilne_count)
             
-            # Przypisanie emotek identyczne z logiką licznika
-            def apply_consistent_emoji(row):
-                icon = "🔴 " if row['DNI_NUM'] >= -2 else "🟢 "
+            # ZAMIANA 🔴 NA 🔥 W GŁÓWNEJ TABELI
+            def apply_fire_emoji(row):
+                icon = "🔥 " if row['DNI_NUM'] >= -2 else "🟢 "
                 return f"{icon}{row['TREŚĆ ZADANIA']}"
             
             df_display = df.copy()
-            df_display['TREŚĆ ZADANIA'] = df_display.apply(apply_consistent_emoji, axis=1)
-            # Usuwamy kolumnę pomocniczą z widoku
+            df_display['TREŚĆ ZADANIA'] = df_display.apply(apply_fire_emoji, axis=1)
             df_final = df_display.drop(columns=['DNI_NUM'])
         else:
             m2.metric("🔥 Pilne (-2+)", 0)
