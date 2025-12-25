@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import datetime
 import requests
 from streamlit_autorefresh import st_autorefresh
-import pytz # Dodano dla poprawnej strefy czasowej
+import pytz
 
 # ==========================================================
 # 1. KONFIGURACJA STRONY
@@ -57,19 +57,6 @@ def pobierz_dane_final(nazwa_zakladki):
     except:
         return pd.DataFrame()
 
-def aktualizuj_arkusz(df_nowy, nazwa_zakladki):
-    try:
-        client = polacz_z_google()
-        ws = client.open(NAZWA_ARKUSZA).worksheet(nazwa_zakladki)
-        naglowki = df_nowy.columns.tolist()
-        wartosci = df_nowy.values.tolist()
-        dane_do_zapisu = [naglowki] + wartosci
-        zakres = f"A1:E{len(dane_do_zapisu)}"
-        ws.update(zakres, dane_do_zapisu)
-        return True
-    except:
-        return False
-
 # ==========================================================
 # 5. STYLIZACJA CSS
 # ==========================================================
@@ -90,8 +77,6 @@ st.markdown("""
         border-radius: 8px !important; padding: 15px !important; text-align: center !important; 
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; font-weight: 900 !important; font-size: 2.2rem !important; color: #1e293b !important; }
-    [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; font-size: 1.1rem !important; font-weight: 600 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -126,41 +111,64 @@ with st.sidebar:
 # ==========================================================
 if 'widok' not in st.session_state: st.session_state['widok'] = 'biezace'
 
+# Przyciski nawigacji
+c1, c2, c3 = st.columns(3) if czy_andrzej else st.columns([1, 1, 0.01])
+with c1: 
+    if st.button("📋 BIEŻĄCE", use_container_width=True): st.session_state['widok'] = 'biezace'
+with c2: 
+    if st.button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
 if czy_andrzej:
-    c1, c2, c3 = st.columns(3)
-    with c1: 
-        if st.button("📋 BIEŻĄCE", use_container_width=True): st.session_state['widok'] = 'biezace'
-    with c2: 
-        if st.button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
     with c3: 
         if st.button("🔧 SŁAWEK", use_container_width=True): st.session_state['widok'] = 'slawek'
-else:
-    c1, c2 = st.columns(2)
-    with c1: 
-        if st.button("📋 BIEŻĄCE", use_container_width=True): st.session_state['widok'] = 'biezace'
-    with c2: 
-        if st.button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
 
 mapa = {'biezace': "Zadania bieżące", 'zrealizowane': "Zadania zrealizowane", 'slawek': "Terminy Sławka"}
 zakladka_aktualna = mapa[st.session_state['widok']]
 df = pobierz_dane_final(zakladka_aktualna)
 
 if not df.empty:
+    # 1. Konwersja dat i sortowanie
     kol_data = "DEADLINE" if "DEADLINE" in df.columns else "TERMIN"
     if kol_data in df.columns:
         df['tmp'] = pd.to_datetime(df[kol_data], dayfirst=True, errors='coerce')
         df = df.sort_values(by='tmp', ascending=True).drop(columns=['tmp'])
 
+    # 2. Logika kolorystyczna (DNI_N)
+    if 'DNI' in df.columns:
+        df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
+        
+        # Tworzymy kolumnę wizualną STATUS
+        def przypisz_alert(dni):
+            if dni == -999: return "⚪ Brak danych"
+            if dni >= -2: return "🚨 PILNE / PO TERMINIE"
+            return "✅ OK"
+        
+        df.insert(0, "STATUS", df['DNI_N'].apply(przypisz_alert))
+
+    # 3. Metryki
     m1, m2, m3 = st.columns(3)
     m1.metric("📋 Razem", len(df))
-    if 'DNI' in df.columns:
-        df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
-        m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
+    if 'DNI_N' in df.columns:
+        pilne_count = len(df[df['DNI_N'] >= -2])
+        m2.metric("🔥 Pilne/Spóźnione", pilne_count)
     else: m2.metric("Status", "Aktywne")
     
-    # POPRAWIONA GODZINA DLA POLSKI
     tz_warszawa = pytz.timezone('Europe/Warsaw')
     godzina_pl = datetime.now(tz_warszawa).strftime("%H:%M")
     m3.metric("🕒 Godzina", godzina_pl)
 
-    st.data_editor(df, use_container_width=True, hide_index=True, height=600, disabled=not czy_admin, column_config={"DNI_N": None})
+    # 4. Wyświetlanie tabeli z edycją
+    # Ukrywamy kolumnę pomocniczą DNI_N, zostawiamy STATUS dla widoczności
+    st.data_editor(
+        df, 
+        use_container_width=True, 
+        hide_index=True, 
+        height=600, 
+        disabled=not czy_admin,
+        column_config={
+            "DNI_N": None, 
+            "STATUS": st.column_config.TextColumn("STATUS", width="medium"),
+            "TREŚĆ": st.column_config.TextColumn("TREŚĆ", width="large")
+        }
+    )
+else:
+    st.info("Brak zadań w tej sekcji.")
