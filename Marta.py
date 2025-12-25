@@ -50,7 +50,7 @@ def pobierz_dane_final(nazwa_zakladki):
         dane_raw = ws.get_all_values()
         if not dane_raw: return pd.DataFrame()
         df = pd.DataFrame(dane_raw[1:], columns=dane_raw[0])
-        df = df.iloc[:, :5] # Tylko kolumny A:E
+        df = df.iloc[:, :5] 
         df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
         return df
     except:
@@ -70,14 +70,28 @@ def aktualizuj_arkusz(df_nowy, nazwa_zakladki):
         return False
 
 # ==========================================================
-# 5. STYLIZACJA CSS
+# 5. STYLIZACJA CSS (Ujednolicenie przycisków)
 # ==========================================================
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
-    .stButton button { background-color: #334155 !important; color: white !important; border: 1px solid #94a3b8 !important; font-size: 0.8rem !important; width: 100%; }
-    [data-testid="stMetric"] { background-color: white !important; border-top: 4px solid #eab308 !important; border-radius: 8px !important; padding: 15px !important; text-align: center !important; }
+    
+    /* Wszystkie przyciski w systemie */
+    .stButton button { 
+        background-color: #334155 !important; 
+        color: white !important; 
+        border: 1px solid #94a3b8 !important; 
+        font-size: 0.8rem !important; 
+        width: 100% !important; 
+        height: 45px !important; /* Stała wysokość dla wszystkich przycisków */
+        margin-bottom: 10px !important;
+    }
+    
+    [data-testid="stMetric"] { 
+        background-color: white !important; border-top: 4px solid #eab308 !important; 
+        border-radius: 8px !important; padding: 15px !important; text-align: center !important; 
+    }
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; font-weight: 900 !important; font-size: 2.2rem !important; color: #1e293b !important; }
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; font-size: 1.1rem !important; font-weight: 600 !important; }
     </style>
@@ -100,35 +114,28 @@ def dodaj_zadanie_dialog():
             else:
                 try:
                     client = polacz_z_google()
-                    # Wybór zakładki docelowej
                     zakl = "Terminy Sławka" if osoba == "Sławek" else "Zadania bieżące"
                     ws = client.open(NAZWA_ARKUSZA).worksheet(zakl)
-                    
-                    # Przygotowanie wiersza
                     osoba_zapis = osoba if osoba != "Brak" else ""
                     data_zapis = termin.strftime("%d.%m.%Y")
-                    nowy_wiersz = [tresc, osoba_zapis, data_zapis, "", uwagi]
-                    
-                    ws.append_row(nowy_wiersz)
+                    ws.append_row([tresc, osoba_zapis, data_zapis, "", uwagi])
                     st.success(f"Dodano do: {zakl}")
-                    st.cache_data.clear()
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Błąd: {e}")
+                    st.cache_data.clear(); st.rerun()
+                except: st.error("Błąd zapisu")
 
 # ==========================================================
-# 7. PANEL BOCZNY
+# 7. PANEL BOCZNY (Sidebar)
 # ==========================================================
 with st.sidebar:
     st.markdown("<h2 style='color: #0ea5e9; text-align:center;'>UZDROWISKO<br><span style='color:#eab308'>CIECHOCINEK</span></h2>", unsafe_allow_html=True)
     st.divider()
     
-    # PRZYCISK DODAWANIA (Tylko dla Andrzeja i Marty)
+    # Oba przyciski z use_container_width=True
     if czy_admin:
-        if st.button("➕ DODAJ NOWE ZADANIE"):
+        if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True):
             dodaj_zadanie_dialog()
             
-    if st.button("🔄 ODŚWIEŻ DANE"):
+    if st.button("🔄 ODŚWIEŻ DANE", use_container_width=True):
         st.cache_data.clear(); st.rerun()
         
     st.write(f"Zalogowany: **{zalogowany_uzytkownik}**")
@@ -175,6 +182,7 @@ if not df.empty:
     m1.metric("📋 Razem", len(df))
     if 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
+        # Zgodnie z instrukcją: -2 to pilne
         m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
     else: m2.metric("Status", "Aktywne")
     m3.metric("🕒 Godzina", datetime.now().strftime("%H:%M"))
@@ -185,7 +193,7 @@ if not df.empty:
     )
 
     if czy_admin and not edited_df.equals(df):
-        if st.button("💾 ZAPISZ ZMIANY (A-E)", type="primary"):
+        if st.button("💾 ZAPISZ ZMIANY (A-E)", type="primary", use_container_width=True):
             if aktualizuj_arkusz(edited_df.iloc[:, :5], zakladka_aktualna):
                 st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
 else:
