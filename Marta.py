@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (LOGO I ODSTĘPY)
+# 1. KONFIGURACJA I STYLIZACJA (LOGO SKORYGOWANE O 1MM)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -20,11 +20,11 @@ st.markdown("""
     .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
-    /* --- MAKSYMALNE PODNIESIENIE LOGO I ODCHNIĘCIE KAFELKÓW --- */
+    /* --- KOREKTA POZYCJI LOGO O 1MM W DÓŁ --- */
     .logo-container { 
         text-align: center; 
-        margin-top: -70px !important; /* Maksymalne podciągnięcie do góry */
-        margin-bottom: 35px !important; /* Zwiększony odstęp od dołu, aby odsunąć przyciski */
+        margin-top: -65px !important; /* Zmieniono z -70px na -65px dla obniżenia o 1mm */
+        margin-bottom: 35px !important; 
         padding-bottom: 10px;
     }
     .logo-container img { width: 200px; cursor: pointer; }
@@ -127,7 +127,6 @@ if not df_chat.empty and 'ODBIORCA' in df_chat.columns:
 st.markdown(f'<div class="sticky-user-badge">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 with st.sidebar:
-    # Kontener z logiem i wymuszonym odstępem
     st.markdown(f'<div class="logo-container"><a href="?u={u_param}&k={k_param}" target="_self"><img src="{LOGO_URL}"></a></div>', unsafe_allow_html=True)
     
     st.markdown('<div class="sidebar-header">🧭 Nawigacja</div>', unsafe_allow_html=True)
