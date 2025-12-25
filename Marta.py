@@ -8,47 +8,50 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA LOGO)
+# 1. KONFIGURACJA I STYLIZACJA (WYŚRODKOWANIE METRYK)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
 
-# Bezpośredni link do logo na GitHub (Raw link z zakodowanymi znakami)
 LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20%281%29.png"
 
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem !important; }
+    [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
-    /* PANEL BOCZNY */
-    [data-testid="stSidebar"] { 
-        background-color: #1e293b !important; 
-        border-right: 5px solid #eab308 !important; 
-    }
-    
-    /* KLIKALNE LOGO - STYLIZACJA KONTENERA */
-    .logo-container {
-        text-align: center;
-        margin-top: -30px !important;
-        margin-bottom: 20px !important;
-    }
-    .logo-container img {
-        width: 200px;
-        cursor: pointer;
-        transition: transform 0.3s ease;
-    }
-    .logo-container img:hover {
-        transform: scale(1.03);
-    }
+    .logo-container { text-align: center; margin-top: -30px !important; margin-bottom: 20px !important; }
+    .logo-container img { width: 200px; cursor: pointer; transition: 0.3s; }
+    .logo-container img:hover { transform: scale(1.03); }
 
-    /* PRZYCISKI W PANELU */
     [data-testid="stSidebar"] div.stButton > button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; font-weight: 600 !important;
         height: 46px !important; margin-bottom: 5px !important;
     }
 
-    /* ZAKŁADKI (TABS) - POPRAWIONA WIDOCZNOŚĆ */
+    /* WYŚRODKOWANIE LICZB W KAFELKACH */
+    [data-testid="stMetricValue"] > div { 
+        display: flex !important; 
+        justify-content: center !important; 
+        color: #eab308 !important; 
+        font-weight: 900 !important; 
+        font-size: 2.2rem !important;
+    }
+    [data-testid="stMetricLabel"] > div { 
+        display: flex !important; 
+        justify-content: center !important; 
+        color: white !important; 
+        font-weight: 600 !important;
+    }
+    [data-testid="stMetric"] { 
+        background-color: #1e293b !important; 
+        border-top: 4px solid #eab308 !important; 
+        border-radius: 10px !important; 
+        padding: 10px !important;
+    }
+
+    /* ZAKŁADKI */
     button[data-baseweb="tab"] {
         font-size: 1.1rem !important; font-weight: 700 !important;
         color: #1e293b !important; background-color: #e2e8f0 !important;
@@ -60,7 +63,6 @@ st.markdown("""
         border-bottom: 4px solid #eab308 !important; 
     }
 
-    /* STOPKA NA DOLE */
     .sidebar-footer { position: fixed; bottom: 10px; width: 240px; text-align: center; color: #94a3b8; font-size: 0.75rem; }
     </style>
     """, unsafe_allow_html=True)
@@ -116,7 +118,7 @@ def generuj_kalendarz_html(df_zadania):
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 3. LOGIKA SIDEBARU (NAPRAWA LOGO I PRZYCISKU HOME)
+# 3. LOGIKA SIDEBARU
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 if u == "Andrzej" and k == "8800": zalogowany = u
@@ -127,15 +129,7 @@ df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    # --- LOGO JAKO LINK HOME (RESETUJE WIDOK) ---
-    st.markdown(f"""
-        <div class="logo-container">
-            <a href="?u={u}&k={k}" target="_self">
-                <img src="{LOGO_URL}" alt="Uzdrowisko Ciechocinek">
-            </a>
-        </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown(f'<div class="logo-container"><a href="?u={u}&k={k}" target="_self"><img src="{LOGO_URL}"></a></div>', unsafe_allow_html=True)
     st.markdown('<div style="border-bottom:1px solid #334155; margin:5px 0 10px 0;"></div>', unsafe_allow_html=True)
     
     if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): st.info("Dodaj zadanie w Arkuszu.")
@@ -148,13 +142,13 @@ with st.sidebar:
     nadchodzace = df_total[df_total['DNI_N'] >= -2].sort_values(by='DEADLINE').head(3)
     for _, r in nadchodzace.iterrows():
         st.markdown(f"<div style='background-color:#334155; padding:8px; border-radius:8px; border-left:4px solid #ef4444; margin-bottom:6px;'><p style='color:white; font-size:0.8rem; margin:0;'><b>{r['DEADLINE']}</b>: {r['TREŚĆ ZADANIA']}</p></div>", unsafe_allow_html=True)
-
     st.markdown(f'<div class="sidebar-footer">Zalogowany: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY
+# 4. WIDOK GŁÓWNY (ZAKŁADKI)
 # ==========================================================
-kat_list = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "🔴 CZAT"]
+# Dodana zakładka "Zrealizowane" jako trzecia
+kat_list = ["Zadania bieżące", "Zadania zrealizowane", "Zrealizowane", "Terminy Sławka", "🔴 CZAT"]
 tabs = st.tabs(kat_list)
 
 for i, kat in enumerate(kat_list[:-1]):
@@ -162,14 +156,20 @@ for i, kat in enumerate(kat_list[:-1]):
         df = pobierz_df(kat)
         if not df.empty:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
+            
+            # WYŚRODKOWANE METRYKI I NOWA NAZWA
             m1, m2, m3 = st.columns(3)
             m1.metric("📋 Razem", len(df))
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
-            m3.metric("🕒 Godzina", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
-            df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
+            m3.metric("🕒 Ostatnia aktualizacja", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
             
+            df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
             edytowane = st.data_editor(df, use_container_width=True, hide_index=True, height=750, key=f"ed_{kat}")
             
             if st.button(f"💾 ZAPISZ ZMIANY: {kat.upper()}", key=f"btn_{kat}"):
                 if zapisz_df(edytowane.drop(columns=["S", "DNI_N"]), kat):
                     st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
+
+with tabs[-1]:
+    st.subheader("🔴 Komunikacja")
+    st.info("System czatu w trakcie synchronizacji...")
