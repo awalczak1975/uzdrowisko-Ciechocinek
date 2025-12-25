@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA GRAFIKI CZATU)
+# 1. KONFIGURACJA I STYLIZACJA (WYŚRODKOWANIE LICZB)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -43,7 +43,27 @@ st.markdown("""
     .term-box { background: #334155; padding: 12px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 8px; color: white; font-size: 0.72rem; }
     .sidebar-header { color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 8px; }
     
-    /* POPRAWKA GRAFIKI ZAKŁADEK (W TYM CZAT) */
+    /* WYŚRODKOWANIE LICZB I ETYKIET W METRYKACH */
+    [data-testid="stMetricValue"] > div { 
+        display: flex !important; 
+        justify-content: center !important; 
+        color: #eab308 !important; 
+        font-weight: 900 !important; 
+        font-size: 1.8rem !important; 
+    }
+    [data-testid="stMetricLabel"] > div { 
+        display: flex !important; 
+        justify-content: center !important; 
+        color: white !important; 
+        font-weight: 600 !important; 
+    }
+    [data-testid="stMetric"] { 
+        background-color: #1e293b !important; 
+        border-top: 4px solid #eab308 !important; 
+        border-radius: 10px !important; 
+        text-align: center !important;
+    }
+
     button[data-baseweb="tab"] { 
         font-size: 1.1rem !important; 
         font-weight: 700 !important; 
@@ -58,9 +78,6 @@ st.markdown("""
         background-color: #1e293b !important; 
         border-bottom: 4px solid #eab308 !important; 
     }
-
-    [data-testid="stMetricValue"] > div { color: #eab308 !important; font-weight: 900 !important; font-size: 1.8rem !important; }
-    [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -129,16 +146,16 @@ with st.sidebar:
             dni_v = pd.to_numeric(r.get('DNI', 0), errors='coerce')
             st.markdown(f'<div class="term-box">{"🔥" if dni_v >= -2 else "🟢"} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
     
-    st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {"ANDRZEJ WALCZAK" if zalogowany == "Andrzej" else zalogowany.upper()}</div>', unsafe_allow_html=True)
+    u_name = "ANDRZEJ WALCZAK" if zalogowany == "Andrzej" else zalogowany.upper()
+    st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {u_name}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (POPRAWNE LICZNIKI I GRAFIKA)
+# 4. WIDOK GŁÓWNY (WYŚRODKOWANE LICZNIKI)
 # ==========================================================
 chat_tab_label = f"💬 CZAT {'🔴' if has_new else ''}"
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", chat_tab_label])
 now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
 
-# Licznik Zrealizowanych (Zliczanie niepustych komórek w Kolumnie A)
 count_zreal = df_zreal_full.iloc[:, 0].replace('', pd.NA).dropna().count() if not df_zreal_full.empty else 0
 
 for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
@@ -147,7 +164,6 @@ for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy
         m1, m2, m3, m4 = st.columns(4)
         
         if not df_tab.empty:
-            # Licznik Razem: Zliczanie niepustych komórek w Kolumnie A (Naprawa 13500)
             count_razem = df_tab.iloc[:, 0].replace('', pd.NA).dropna().count()
             df_tab['DNI_N'] = pd.to_numeric(df_tab['DNI'], errors='coerce').fillna(-999)
             
@@ -156,7 +172,6 @@ for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy
             m3.metric("✅ Zrealizowane", int(count_zreal))
             m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
             
-            # Ikonki
             df_tab['TREŚĆ ZADANIA'] = df_tab.apply(lambda r: f"{('🔥 ' if r['DNI_N'] >= -2 else '🟢 ')}{r['TREŚĆ ZADANIA']}", axis=1)
             st.data_editor(df_tab.drop(columns=['DNI_N']), use_container_width=True, hide_index=True, height=800)
         else:
