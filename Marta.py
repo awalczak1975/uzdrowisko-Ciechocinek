@@ -43,7 +43,7 @@ if u_param in USERS and USERS[u_param] == k_param: zalogowany = u_param
 else: st.error("BŁĄD AUTORYZACJI"); st.stop()
 
 # ==========================================================
-# 3. FUNKCJE TECHNICZNE
+# 3. FUNKCJE TECHNICZNE (STABILNY ODCZYT)
 # ==========================================================
 def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
@@ -85,7 +85,7 @@ def generuj_kalendarz_html(df_zadania, user):
 # 4. SIDEBAR
 # ==========================================================
 df_biez = pobierz_df_stabilnie("Zadania bieżące")
-df_zreal = pobierz_df_stabilnie("Zadania zrealizowane")
+df_zreal_count = pobierz_df_stabilnie("Zadania zrealizowane")
 df_chat = pobierz_df_stabilnie("CZAT")
 has_new = not df_chat[(df_chat['ODBIORCA'] == zalogowany) & (df_chat['STATUS'] == "NIEPRZECZYTANE")].empty if not df_chat.empty and 'ODBIORCA' in df_chat.columns else False
 
@@ -100,6 +100,7 @@ with st.sidebar:
             st.cache_data.clear()
             st.rerun()
     st.markdown('<div style="border-top: 1px solid #334155; margin: 8px 0;"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-header">📅 Twoje Terminy</div>', unsafe_allow_html=True)
     st.components.v1.html(generuj_kalendarz_html(df_biez, zalogowany), height=175)
     st.markdown('<div class="sidebar-header">🕒 Nadchodzące Twoje</div>', unsafe_allow_html=True)
     if not df_biez.empty:
@@ -112,7 +113,7 @@ with st.sidebar:
             st.markdown(f'<div class="term-box">{status_icon} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:32]}...</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 5. WIDOK GŁÓWNY (TABELA Z EMOTKAMI)
+# 5. WIDOK GŁÓWNY (Z NAPRAWIONYMI EMOTKAMI)
 # ==========================================================
 chat_label = "💬 CZAT 🔴" if has_new else "💬 CZAT"
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", chat_label])
@@ -125,27 +126,30 @@ for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy S
         m1.metric("📋 Razem", len(df))
         
         if not df.empty and 'DNI' in df.columns:
-            # PRZYWRÓCENIE EMOTEK DO GŁÓWNEJ TABELI
-            def dodaj_emotke(row):
+            # KLUCZOWA POPRAWKA: Dodawanie emotek przed wyświetleniem tabeli
+            def apply_emoji(row):
                 try:
                     val = pd.to_numeric(row['DNI'], errors='coerce')
-                    prefix = "🔴 " if val >= -2 else "🟢 "
-                    return f"{prefix}{row['TREŚĆ ZADANIA']}"
+                    icon = "🔴 " if val >= -2 else "🟢 "
+                    return f"{icon}{row['TREŚĆ ZADANIA']}"
                 except:
                     return row['TREŚĆ ZADANIA']
-
-            df['TREŚĆ ZADANIA'] = df.apply(dodaj_emotke, axis=1)
             
-            df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
-            m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
+            # Tworzymy kopię do wyświetlania z emotkami
+            df_display = df.copy()
+            df_display['TREŚĆ ZADANIA'] = df_display.apply(apply_emoji, axis=1)
+            
+            df_n = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
+            m2.metric("🔥 Pilne (-2+)", len(df[df_n >= -2]))
         else:
             m2.metric("🔥 Pilne (-2+)", 0)
-            
-        m3.metric("✅ Zrealizowane", len(df_zreal))
+            df_display = df
+
+        m3.metric("✅ Zrealizowane", len(df_zreal_count))
         m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
         
-        if not df.empty:
-            st.data_editor(df, use_container_width=True, hide_index=True, height=550)
+        if not df_display.empty:
+            st.data_editor(df_display, use_container_width=True, hide_index=True, height=550)
         else:
             st.info("Brak aktywnych zadań w tej sekcji.")
 
