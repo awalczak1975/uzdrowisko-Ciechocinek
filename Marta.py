@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (CZERWONA KROPKA + STABILNOŚĆ)
+# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA PUSTYCH EKRANÓW)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -45,25 +45,25 @@ st.markdown("""
     .term-box { background: #334155; padding: 12px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 8px; color: white; font-size: 0.72rem; }
     .sidebar-header { color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 8px; }
     
-    /* WYŚRODKOWANIE METRYK */
+    /* METRYKI WYŚRODKOWANE */
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 1.8rem !important; }
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
     [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; text-align: center !important; }
 
-    /* ZAKŁADKI */
+    /* ZAKŁADKI IDENTYCZNE */
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 25px !important; border: none !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
 
     /* CZAT DYMKI */
-    .chat-container { display: flex; flex-direction: column; gap: 10px; padding: 15px; background: #f8fafc; border-radius: 12px; height: 450px; overflow-y: auto; border: 1px solid #e2e8f0; }
-    .bubble { padding: 10px 14px; border-radius: 15px; font-size: 13px; max-width: 80%; }
+    .chat-container { display: flex; flex-direction: column; gap: 10px; padding: 15px; background: #f8fafc; border-radius: 12px; height: 500px; overflow-y: auto; border: 1px solid #e2e8f0; }
+    .bubble { padding: 10px 14px; border-radius: 15px; font-size: 13px; max-width: 80%; margin-bottom: 5px; }
     .bubble-me { align-self: flex-end; background-color: #eab308; color: #1e293b; font-weight: 600; }
-    .bubble-other { align-self: flex-start; background-color: white; border: 1px solid #cbd5e1; }
+    .bubble-other { align-self: flex-start; background-color: white; border: 1px solid #cbd5e1; color: #1e293b; }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. POŁĄCZENIE I DANE
+# 2. LOGOWANIE I DANE
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -74,25 +74,29 @@ def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
     return gspread.authorize(creds)
 
-@st.cache_data(ttl=15)
+@st.cache_data(ttl=10)
 def pobierz_arkusz(nazwa):
     try:
         ws = polacz().open("Marta-Dział Techniczny").worksheet(nazwa)
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
         df = pd.DataFrame(dane[1:], columns=dane[0])
-        # Filtracja pustych zadań
         if 'TREŚĆ ZADANIA' in df.columns:
             df = df[df['TREŚĆ ZADANIA'].str.strip() != ""].copy()
         return df
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR
+# 3. SIDEBAR (STABILNY)
 # ==========================================================
-df_biez_full = pobierz_arkusz("Zadania bieżące")
-df_zreal_full = pobierz_arkusz("Zadania zrealizowane")
-df_chat_full = pobierz_arkusz("CZAT")
+df_biez = pobierz_arkusz("Zadania bieżące")
+df_zreal = pobierz_arkusz("Zadania zrealizowane")
+df_chat = pobierz_arkusz("CZAT")
+
+# Logika powiadomienia kropką
+nowe_wiad = False
+if not df_chat.empty and 'ODBIORCA' in df_chat.columns:
+    nowe_wiad = not df_chat[(df_chat['ODBIORCA'] == zalogowany) & (df_chat['STATUS'] == "NIEPRZECZYTANE")].empty
 
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><img src="{LOGO_URL}"></div>', unsafe_allow_html=True)
@@ -105,8 +109,8 @@ with st.sidebar:
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_taskami = set()
-    if not df_biez_full.empty:
-        df_f = df_biez_full if zalogowany == "Andrzej" else df_biez_full[df_biez_full['OSOBA'].str.contains(zalogowany, na=False)]
+    if not df_biez.empty:
+        df_f = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
         deadlines = pd.to_datetime(df_f['DEADLINE'], errors='coerce', dayfirst=True)
         dni_z_taskami = set(deadlines[(deadlines.dt.month == now.month) & (deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
@@ -123,8 +127,8 @@ with st.sidebar:
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
-    if not df_biez_full.empty:
-        df_side = df_biez_full if zalogowany == "Andrzej" else df_biez_full[df_biez_full['OSOBA'].str.contains(zalogowany, na=False)]
+    if not df_biez.empty:
+        df_side = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
         for _, r in df_side.head(4).iterrows():
             dni_v = pd.to_numeric(r.get('DNI', 0), errors='coerce')
             st.markdown(f'<div class="term-box">{"🔥" if dni_v >= -2 else "🟢"} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
@@ -132,50 +136,54 @@ with st.sidebar:
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {"ANDRZEJ WALCZAK" if zalogowany == "Andrzej" else zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (NAPRAWIONE LICZNIKI I CZAT)
+# 4. WIDOK GŁÓWNY (NAPRAWA ZNIKANIA I CZERWONA KROPKA)
 # ==========================================================
-tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "💬 CZAT 🔴"]) # Dodana kropka
+label_czat = "💬 CZAT 🔴" if nowe_wiad else "💬 CZAT" # Czerwona kropka
+tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", label_czat])
 now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
 
-# Licznik Zrealizowanych (zliczanie niepustych wierszy)
-count_zreal = df_zreal_full.iloc[:, 0].replace('', pd.NA).dropna().count() if not df_zreal_full.empty else 0
+# Suma zrealizowanych (zliczanie wierszy w kolumnie A)
+count_zreal = df_zreal.iloc[:, 0].replace('', pd.NA).dropna().count() if not df_zreal.empty else 0
 
 for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
     with tabs[i]:
         df_tab = pobierz_arkusz(nazwa)
         m1, m2, m3, m4 = st.columns(4)
         if not df_tab.empty:
-            count_razem = df_tab.iloc[:, 0].replace('', pd.NA).dropna().count() # Naprawa błędu 13500
+            count_razem = df_tab.iloc[:, 0].replace('', pd.NA).dropna().count()
             df_tab['DNI_N'] = pd.to_numeric(df_tab['DNI'], errors='coerce').fillna(-999)
             m1.metric("📋 Razem", int(count_razem))
             m2.metric("🔥 Pilne (-2+)", len(df_tab[df_tab['DNI_N'] >= -2]))
             m3.metric("✅ Zrealizowane", int(count_zreal))
             m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
+            
             df_tab['TREŚĆ ZADANIA'] = df_tab.apply(lambda r: f"{('🔥 ' if r['DNI_N'] >= -2 else '🟢 ')}{r['TREŚĆ ZADANIA']}", axis=1)
-            st.data_editor(df_tab.drop(columns=['DNI_N']), use_container_width=True, hide_index=True, height=700)
+            # WYMUSZONE WYŚWIETLANIE (ZAPOBIEGA PUSTYM EKRANOM)
+            st.data_editor(df_tab.drop(columns=['DNI_N']), use_container_width=True, hide_index=True, height=750, key=f"editor_{nazwa}")
         else:
-            st.info("Brak zadań.")
+            st.info("Brak aktywnych zadań w tym arkuszu.")
 
-# --- NAPRAWIONA SEKCJA CZATU ---
+# --- SEKCJA CZATU ---
 with tabs[3]:
-    st.subheader("💬 Komunikator")
-    if not df_chat_full.empty:
+    st.subheader("💬 Komunikator firmowy")
+    if not df_chat.empty:
+        # Pokaż tylko rozmowy zalogowanego
+        moj_czat = df_chat[(df_chat['NADAWCA'] == zalogowany) | (df_chat['ODBIORCA'] == zalogowany)].tail(15)
         chat_html = '<div class="chat-container">'
-        # Pokazujemy ostatnie 20 wiadomości
-        for _, msg in df_chat_full.tail(20).iterrows():
+        for _, msg in moj_czat.iterrows():
             is_me = msg['NADAWCA'] == zalogowany
             cls = "bubble-me" if is_me else "bubble-other"
-            chat_html += f'<div class="bubble {cls}"><b>{msg["NADAWCA"]}</b>: {msg["TREŚĆ"]}<br><small style="font-size:9px;">{msg["DATA"]}</small></div>'
+            chat_html += f'<div class="bubble {cls}"><b>{msg["NADAWCA"]}</b>: {msg["TREŚĆ"]}<br><small style="font-size:9px; opacity:0.6;">{msg["DATA"]}</small></div>'
         chat_html += '</div>'
         st.markdown(chat_html, unsafe_allow_html=True)
     
-    with st.form("send_msg", clear_on_submit=True):
+    with st.form("new_msg", clear_on_submit=True):
         c1, c2, c3 = st.columns([2, 5, 1])
-        target = c1.selectbox("Do:", [u for u in USERS.keys() if u != zalogowany])
-        msg_text = c2.text_input("Wpisz wiadomość...")
+        odbiorca = c1.selectbox("Do:", [u for u in USERS.keys() if u != zalogowany])
+        tresc = c2.text_input("Napisz wiadomość...")
         if c3.form_submit_button("Wyślij"):
-            if msg_text:
-                polacz().open("Marta-Dział Techniczny").worksheet("CZAT").append_row([now_pl.strftime("%Y-%m-%d %H:%M"), zalogowany, target, msg_text, "NIEPRZECZYTANE"])
+            if tresc:
+                polacz().open("Marta-Dział Techniczny").worksheet("CZAT").append_row([now_pl.strftime("%Y-%m-%d %H:%M"), zalogowany, odbiorca, tresc, "NIEPRZECZYTANE"])
                 st.cache_data.clear(); st.rerun()
 
 st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now_pl.strftime("%d.%m.%Y | %H:%M")}</span></div>', unsafe_allow_html=True)
