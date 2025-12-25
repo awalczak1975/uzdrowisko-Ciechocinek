@@ -8,13 +8,13 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA LOGO)
+# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA LINKU DO LOGO)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
 
-# Poprawiony, bezpośredni link do pliku na GitHub (Raw)
-LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20(1).png"
+# BEZPIECZNY LINK (z zakodowanymi spacjami)
+LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20%281%29.png"
 
 st.markdown("""
     <style>
@@ -26,37 +26,28 @@ st.markdown("""
         border-right: 5px solid #eab308 !important; 
     }
     
-    /* STYLIZACJA LOGO - PODCIĄGNIĘCIE DO GÓRY */
+    /* STYLIZACJA LOGO */
     .logo-box {
         text-align: center;
         margin-top: -45px !important;
         margin-bottom: -15px !important;
     }
 
-    /* PRZYCISKI W PANELU */
+    /* PRZYCISKI */
     [data-testid="stSidebar"] div.stButton > button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; font-weight: 600 !important;
         height: 46px !important; margin-bottom: 5px !important;
     }
 
-    /* AKTYWNA ZAKŁADKA - KOLOR PANELU */
+    /* AKTYWNA ZAKŁADKA */
     button[data-baseweb="tab"][aria-selected="true"] {
         color: white !important;
         background-color: #1e293b !important; 
         border-bottom: 4px solid #eab308 !important; 
     }
 
-    /* METRYKI PODSUMOWANIA */
-    [data-testid="stMetric"] { 
-        background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
-        border-radius: 10px !important; text-align: center !important; 
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    }
-    [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; }
-    [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; }
-
-    /* STOPKA NA DOLE */
+    /* STOPKA */
     .sidebar-footer { position: fixed; bottom: 10px; width: 240px; text-align: center; color: #94a3b8; font-size: 0.75rem; }
     </style>
     """, unsafe_allow_html=True)
@@ -136,7 +127,7 @@ df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    # WSTAWIANIE LOGO - METODA HTML DLA PRECYZYJNEJ KONTROLI ODSTĘPÓW
+    # WSTAWIANIE LOGO PRZEZ HTML (bezpieczny link)
     st.markdown(f'<div class="logo-box"><img src="{LOGO_URL}" width="200"></div>', unsafe_allow_html=True)
     
     st.markdown('<div style="border-bottom: 1px solid #334155; margin: 5px 0 10px 0;"></div>', unsafe_allow_html=True)
@@ -173,7 +164,6 @@ for i, kat in enumerate(kat_list[:-1]):
             m3.metric("🕒 Godzina", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
             
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
-            
             edytowane = st.data_editor(df, use_container_width=True, hide_index=True, height=750, key=f"ed_{kat}")
             
             if st.button(f"💾 ZAPISZ ZMIANY: {kat.upper()}", key=f"btn_{kat}"):
