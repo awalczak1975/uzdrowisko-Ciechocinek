@@ -44,6 +44,9 @@ st.markdown("""
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
     [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; padding: 5px 10px !important; }
     
+    button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 25px !important; }
+    button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
+    
     .term-box { background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.7rem; }
     .sidebar-header { color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 10px; }
     </style>
@@ -74,8 +77,7 @@ def pobierz_arkusz(nazwa):
 # 3. SIDEBAR
 # ==========================================================
 df_biez = pobierz_arkusz("Zadania bieżące")
-df_zreal = pobierz_arkusz("Zadania zrealizowane")
-df_chat = pobierz_arkusz("CZAT")
+df_zreal_full = pobierz_arkusz("Zadania zrealizowane")
 
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><img src="{LOGO_URL}"></div>', unsafe_allow_html=True)
@@ -86,7 +88,6 @@ with st.sidebar:
         if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
     
     st.markdown('<div class="sidebar-header">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
-    # Generowanie kalendarza
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_taskami = set()
@@ -117,10 +118,15 @@ with st.sidebar:
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {"ANDRZEJ WALCZAK" if zalogowany == "Andrzej" else zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (POPRAWNY LICZNIK "RAZEM")
+# 4. WIDOK GŁÓWNY (POPRAWNY LICZNIK - ZLICZANIE, NIE SUMOWANIE)
 # ==========================================================
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", f"💬 CZAT"])
 now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
+
+# Licznik Zrealizowanych: ile jest niepustych komórek w Kolumnie A
+count_zrealizowane = 0
+if not df_zreal_full.empty:
+    count_zrealizowane = df_zreal_full.iloc[:, 0].replace('', pd.NA).dropna().count()
 
 for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
     with tabs[i]:
@@ -128,15 +134,11 @@ for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy
         m1, m2, m3, m4 = st.columns(4)
         
         if not df_raw.empty:
-            # KLUCZOWA POPRAWKA: Sumowanie wartości z Kolumny A (indeks 0)
-            try:
-                suma_razem = pd.to_numeric(df_raw.iloc[:, 0], errors='coerce').sum()
-                # Jeśli suma jest 0 (np. kolumna A to teksty), pokazujemy liczbę wierszy
-                if suma_razem == 0: suma_razem = len(df_raw)
-            except: suma_razem = len(df_raw)
+            # Licznik Razem: ile jest niepustych komórek w Kolumnie A
+            count_razem = df_raw.iloc[:, 0].replace('', pd.NA).dropna().count()
             
             df_raw['DNI_N'] = pd.to_numeric(df_raw['DNI'], errors='coerce').fillna(-999)
-            m1.metric("📋 Razem", int(suma_razem))
+            m1.metric("📋 Razem", int(count_razem))
             m2.metric("🔥 Pilne (-2+)", len(df_raw[df_raw['DNI_N'] >= -2]))
             
             df_v = df_raw.copy()
@@ -144,9 +146,9 @@ for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy
             st.data_editor(df_v.drop(columns=['DNI_N']), use_container_width=True, hide_index=True, height=800)
         else:
             m1.metric("📋 Razem", 0); m2.metric("🔥 Pilne (-2+)", 0)
-            st.info("Brak zadań.")
+            st.info("Brak aktywnych zadań.")
         
-        m3.metric("✅ Zrealizowane", len(df_zreal))
+        m3.metric("✅ Zrealizowane", int(count_zrealizowane))
         m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
 
 st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now_pl.strftime("%d.%m.%Y | %H:%M")}</span></div>', unsafe_allow_html=True)
