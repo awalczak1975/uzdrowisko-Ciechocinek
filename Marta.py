@@ -8,21 +8,26 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. STYLIZACJA (PRZYWRÓCENIE PEŁNEJ GRAFIKI)
+# 1. KONFIGURACJA I STYLIZACJA (AKTYWNE LOGO)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
 
+# Adres URL Twojej aplikacji do restartu po kliknięciu w logo
+APP_URL = "https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u=Andrzej&k=8800"
 LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20%281%29.png"
 
-st.markdown("""
+st.markdown(f"""
     <style>
-    .block-container { padding-top: 0.5rem !important; }
-    [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
-    .logo-container { text-align: center; margin-top: -65px !important; margin-bottom: 20px !important; }
-    .logo-container img { width: 190px; }
+    .block-container {{ padding-top: 0.5rem !important; }}
+    [data-testid="stSidebar"] {{ background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }}
     
-    .user-info-footer {
+    /* LOGO JAKO PRZYCISK */
+    .logo-container {{ text-align: center; margin-top: -65px !important; margin-bottom: 20px !important; }}
+    .logo-container img {{ width: 190px; transition: transform 0.3s; cursor: pointer; }}
+    .logo-container img:hover {{ transform: scale(1.05); }}
+    
+    .user-info-footer {{
         background-color: #eab308 !important;
         color: #1e293b !important;
         padding: 10px;
@@ -32,21 +37,24 @@ st.markdown("""
         text-align: center;
         margin-top: 15px;
         border: 2px solid white;
-    }
+    }}
 
     /* WYŚRODKOWANIE METRYK */
-    [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 1.8rem !important; }
-    [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
-    [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; text-align: center !important; }
+    [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 1.8rem !important; }}
+    [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }}
+    [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; text-align: center !important; }}
 
     /* ZAKŁADKI */
-    button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 25px !important; border: none !important; }
-    button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
-    
-    /* KOMUNIKATOR DYMKI */
-    .chat-bubble { padding: 10px 15px; border-radius: 15px; margin-bottom: 5px; max-width: 80%; font-size: 14px; }
-    .bubble-me { background: #eab308; align-self: flex-end; color: #1e293b; font-weight: 600; }
-    .bubble-other { background: white; align-self: flex-start; border: 1px solid #cbd5e1; }
+    button[data-baseweb="tab"] {{ font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 25px !important; border: none !important; }}
+    button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }}
+
+    .cal-container {{ background: white; padding: 8px; border-radius: 8px; border: 2px solid #eab308; width: 100%; margin-bottom: 10px; }}
+    .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 10px; color: #1e293b; }}
+    .cal-table td {{ text-align: center; padding: 4px 1px; font-weight: 700; border-radius: 3px; }}
+    .day-today {{ background-color: #eab308 !important; }}
+    .day-task {{ color: #ef4444 !important; border: 1px solid #ef4444 !important; }}
+    .term-box {{ background: #334155; padding: 14px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 10px; color: white; font-size: 0.75rem; }}
+    .sidebar-header {{ color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 10px; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -70,26 +78,63 @@ def pobierz_arkusz(nazwa):
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
         df = pd.DataFrame(dane[1:], columns=dane[0])
-        return df[df.iloc[:, 1].str.strip() != ""].copy()
+        if 'TREŚĆ ZADANIA' in df.columns:
+            df = df[df['TREŚĆ ZADANIA'].str.strip() != ""].copy()
+        return df
     except: return pd.DataFrame()
 
-# Inicjalizacja czatu w pamięci (ulotny)
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
 # ==========================================================
-# 3. SIDEBAR
+# 3. SIDEBAR (Z LINKIEM W LOGO)
 # ==========================================================
 df_biez = pobierz_arkusz("Zadania bieżące")
 df_zreal = pobierz_arkusz("Zadania zrealizowane")
 
 with st.sidebar:
-    st.markdown(f'<div class="logo-container"><img src="{LOGO_URL}"></div>', unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    c1.button("➕ DODAJ", use_container_width=True)
-    if c2.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
+    # KLIKALNE LOGO - POWRÓT DO STRONY GŁÓWNEJ
+    st.markdown(f'''
+        <div class="logo-container">
+            <a href="{APP_URL}" target="_self">
+                <img src="{LOGO_URL}" alt="Logo Uzdrowisko">
+            </a>
+        </div>
+    ''', unsafe_allow_html=True)
     
-    st.markdown('<div class="sidebar-header" style="color:#eab308; font-weight:800; margin-top:20px;">📅 KALENDARZ</div>', unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    with c1: st.button("➕ DODAJ", use_container_width=True)
+    with c2: 
+        if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
+    
+    st.markdown('<div class="sidebar-header">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
+    # Kalendarz
+    now = datetime.now(pytz.timezone('Europe/Warsaw'))
+    cal = calendar.monthcalendar(now.year, now.month)
+    dni_task = set()
+    if not df_biez.empty:
+        df_f = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
+        dt = pd.to_datetime(df_f['DEADLINE'], errors='coerce', dayfirst=True)
+        dni_task = set(dt[(dt.dt.month == now.month) & (dt.dt.year == now.year)].dt.day.dropna().astype(int))
+
+    html = f'<div class="cal-container"><table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
+    for week in cal:
+        html += '<tr>'
+        for day in week:
+            if day == 0: html += '<td></td>'
+            else:
+                cls = "day-today" if day == now.day else ""
+                if day in dni_task: cls += " day-task"
+                html += f'<td class="{cls}">{day}</td>'
+        html += '</tr>'
+    st.markdown(html + '</tbody></table></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
+    if not df_biez.empty:
+        df_side = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
+        for _, r in df_side.head(4).iterrows():
+            st.markdown(f'<div class="term-box"><b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
+    
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()} WALCZAK</div>', unsafe_allow_html=True)
 
 # ==========================================================
@@ -100,24 +145,19 @@ now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
 
 for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
     with tabs[i]:
-        df = pobierz_arkusz(nazwa)
+        df_tab = pobierz_arkusz(nazwa)
         m1, m2, m3 = st.columns(3)
-        if not df.empty:
-            m1.metric("📋 Razem", len(df))
+        if not df_tab.empty:
+            m1.metric("📋 Razem", len(df_tab))
             m3.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
-            st.data_editor(df, use_container_width=True, hide_index=True, height=500)
+            st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
 
 with tabs[3]:
-    st.subheader("💬 Komunikator Szybki (Wiadomości sesyjne)")
-    st.caption("W tej wersji wiadomości są widoczne do czasu odświeżenia strony.")
-    
-    # Wyświetlanie dymków
+    st.subheader("💬 Komunikator Szybki")
     for msg in st.session_state.chat_history:
-        cls = "bubble-me" if msg['user'] == zalogowany else "bubble-other"
-        st.markdown(f'<div class="chat-bubble {cls}"><b>{msg["user"]}</b>: {msg["text"]}</div>', unsafe_allow_html=True)
-    
+        st.markdown(f'**{msg["user"]}**: {msg["text"]}')
     with st.form("chat_form", clear_on_submit=True):
-        txt = st.text_input("Napisz coś...")
+        txt = st.text_input("Napisz do zespołu...")
         if st.form_submit_button("Wyślij") and txt:
             st.session_state.chat_history.append({"user": zalogowany, "text": txt})
             st.rerun()
