@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (WYŚRODKOWANIE I UKŁAD)
+# 1. KONFIGURACJA I STYLIZACJA (WYŚRODKOWANIE I KAFELKI)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
@@ -158,11 +158,10 @@ for i, kat in enumerate(kat_list[:-1]):
         if not df.empty:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
             
-            # CZTERY KAFELKI W JEDNYM RZĘDZIE (WYŚRODKOWANE)
+            # CZTERY WYŚRODKOWANE KAFELKI W JEDNYM RZĘDZIE
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("📋 Razem", len(df))
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
-            # Nowy kafelek "Zrealizowane" (zlicza wiersze z zakładki Zadania zrealizowane)
             m3.metric("✅ Zrealizowane", len(df_zrealizowane))
             m4.metric("🕒 Ostatnia aktualizacja", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
             
