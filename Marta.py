@@ -15,7 +15,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Autorefresh co 5 minut
 st_autorefresh(interval=300000, key="datarefresh")
 
 # ==========================================================
@@ -53,10 +52,8 @@ else:
 def wyslij_telegram(wiadomosc):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": wiadomosc, "parse_mode": "HTML"}
-    try: 
-        requests.post(url, json=payload, timeout=5)
-    except: 
-        pass
+    try: requests.post(url, json=payload, timeout=5)
+    except: pass
 
 def polacz_z_google():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
@@ -69,8 +66,10 @@ def pobierz_dane(zakladka):
     try:
         client = polacz_z_google()
         sheet = client.open(NAZWA_ARKUSZA).worksheet(zakladka)
-        dane = sheet.get_all_values()
+        # POBIERANIE TYLKO KOLUMN A:E (Pierwsze 5 kolumn)
+        dane = sheet.get('A1:E500') 
         if not dane: return pd.DataFrame()
+        # Tworzenie DataFrame: nagłówki z pierwszego wiersza, dane z reszty
         return pd.DataFrame(dane[1:], columns=dane[0])
     except:
         return pd.DataFrame()
@@ -125,18 +124,13 @@ def dodaj_zadanie_dialog():
             except: st.error("Błąd zapisu")
 
 # ==========================================================
-# 7. PANEL BOCZNY (SIDEBAR)
+# 7. PANEL BOCZNY
 # ==========================================================
 with st.sidebar:
     st.markdown("<h2 style='color: #0ea5e9; text-align:center;'>UZDROWISKO<br><span style='color:#eab308'>CIECHOCINEK</span></h2>", unsafe_allow_html=True)
     st.divider()
-    
-    if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True):
-        dodaj_zadanie_dialog()
-    
-    if st.button("🔄 ODŚWIEŻ DANE", use_container_width=True):
-        st.cache_data.clear(); st.rerun()
-        
+    if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): dodaj_zadanie_dialog()
+    if st.button("🔄 ODŚWIEŻ DANE", use_container_width=True): st.cache_data.clear(); st.rerun()
     st.markdown(f'<a href="https://t.me/share/url?text=Monitorowanie" class="tg_btn">✈️ WYŚLIJ NA TELEGRAM</a>', unsafe_allow_html=True)
     st.markdown(f"<div style='text-align:center; color:#94a3b8; margin-top:50px; font-size:0.8rem;'>Zalogowany: <b>{zalogowany_uzytkownik}</b></div>", unsafe_allow_html=True)
 
@@ -145,8 +139,7 @@ with st.sidebar:
 # ==========================================================
 st.markdown('<h3 style="text-align:center; color: #1e293b;">Centrum Zarządzania Administracją</h3>', unsafe_allow_html=True)
 
-if 'widok' not in st.session_state: 
-    st.session_state['widok'] = 'biezace'
+if 'widok' not in st.session_state: st.session_state['widok'] = 'biezace'
 
 c1, c2 = st.columns(2)
 with c1:
@@ -154,36 +147,35 @@ with c1:
 with c2:
     if st.button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
 
-# Pobieranie danych
 zakladka_nazwa = "Zadania bieżące" if st.session_state['widok'] == 'biezace' else "Zadania zrealizowane"
 df = pobierz_dane(zakladka_nazwa)
 
 if not df.empty:
-    # --- LOGIKA LICZENIA TYLKO KOLUMNY A (Usuwanie pustych wierszy z Google Sheets) ---
-    kolumna_a = df.columns[0]
-    df = df[df[kolumna_a].astype(str).str.strip() != ""]
+    # Liczenie zadań na podstawie kolumny A (usuwanie pustych z Sheets)
+    df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
 
-    # Filtrowanie uprawnień
+    # Filtrowanie uprawnień (Rafał i Agata widzą wszystko oprócz Sławka)
     if not czy_admin:
         if zalogowany_uzytkownik == "Sławek":
             df = df[df['OSOBA'] == "Sławek"]
         else:
-            df = df[(df['OSOBA'] == zalogowany_uzytkownik) | (df['OSOBA'] == "") | (df['OSOBA'] == "Brak")]
+            # Rafał i Agata widzą wszystko, co nie jest przypisane do Sławka
+            df = df[df['OSOBA'] != "Sławek"]
 
     # Metryki
     m1, m2, m3 = st.columns(3)
     m1.metric("📋 Razem", len(df))
     
-    if st.session_state['widok'] == 'biezace' and 'DNI' in df.columns:
+    # Obsługa kolumny DNI (jeśli jest w pierwszych 5 kolumnach)
+    if 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
-        # Pilne wg Twojej instrukcji (wartości -2 i wyżej)
         m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
     else:
-        m2.metric("✅ Status", "Zarchiwizowane")
+        m2.metric("✅ Status", "Aktywne")
         
     m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
 
-    # Wyświetlanie tabeli
+    # Tabela
     st.data_editor(df, use_container_width=True, hide_index=True, height=650)
 else:
-    st.info(f"Brak zapisanych zadań w sekcji: {zakladka_nazwa}")
+    st.info("Brak danych.")
