@@ -7,7 +7,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I PRZYWRÓCENIE ORYGINALNEGO STYLU
+# 1. KONFIGURACJA I PEŁNA STYLIZACJA (KOLORYSTYKA UZDROWISKA)
 # ==========================================================
 st.set_page_config(
     page_title="System Uzdrowisko", 
@@ -19,29 +19,47 @@ st_autorefresh(interval=30000, key="globalrefresh")
 
 st.markdown("""
     <style>
-    /* PRZYWRÓCENIE CIEMNEGO PANELU BOCZNEGO */
+    /* LEWY PANEL BOCZNY */
     [data-testid="stSidebar"] { 
         background-color: #1e293b !important; 
         border-right: 5px solid #eab308 !important; 
     }
     [data-testid="stSidebar"] * { color: white !important; }
+    
+    /* PRZYCISKI W PANELU */
     [data-testid="stSidebar"] div.stButton > button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; font-weight: 600 !important;
     }
 
+    /* 3 GŁÓWNE KAFELKI PODSUMOWANIA (KOLOR LEWEJ KOLUMNY) */
+    [data-testid="stMetric"] { 
+        background-color: #1e293b !important; 
+        border-top: 4px solid #eab308 !important; 
+        border-radius: 10px !important; 
+        padding: 20px !important; 
+        text-align: center !important; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    /* Kolory tekstów w kafelkach */
+    [data-testid="stMetricValue"] > div { 
+        color: #eab308 !important; 
+        font-weight: 900 !important; 
+        font-size: 2.5rem !important; 
+        justify-content: center !important; 
+        display: flex !important;
+    }
+    [data-testid="stMetricLabel"] > div { 
+        color: white !important; 
+        font-size: 1.2rem !important; 
+        font-weight: 600 !important; 
+        justify-content: center !important; 
+        display: flex !important;
+    }
+
     /* NAGŁÓWKI ZAKŁADEK */
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: #eab308 !important; border-bottom-color: #eab308 !important; }
-
-    /* METRYKI (GÓRNE PODSUMOWANIE) */
-    [data-testid="stMetric"] { 
-        background-color: white !important; border-top: 4px solid #eab308 !important; 
-        border-radius: 8px !important; padding: 15px !important; text-align: center !important; 
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; font-weight: 900 !important; font-size: 2.2rem !important; color: #1e293b !important; }
-    [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; font-size: 1.1rem !important; font-weight: 600 !important; color: #64748b !important; }
 
     /* STYL CZATU */
     .chat-bubble {
@@ -50,7 +68,7 @@ st.markdown("""
     }
     .chat-to { color: #eab308; font-weight: bold; font-size: 0.8rem; }
     
-    /* BELKA WWW DOLNA */
+    /* DOLNA BELKA WWW */
     .nav-bar {
         display: flex; justify-content: center; background-color: white;
         border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; 
@@ -67,7 +85,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. FUNKCJE
+# 2. FUNKCJE TECHNICZNE
 # ==========================================================
 def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
@@ -102,7 +120,7 @@ def wyslij_chat(autor, adresat, tekst):
     except: return False
 
 # ==========================================================
-# 3. WERYFIKACJA I SIDEBAR
+# 3. WERYFIKACJA I PANEL BOCZNY
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 uzytkownicy = {"Andrzej": "8800", "Marta": "1234", "Rafał": "5566", "Agata": "9911", "Sławek": "4422"}
@@ -122,7 +140,7 @@ with st.sidebar:
     st.write(f"Zalogowany: **{zalogowany}**")
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY
+# 4. WIDOK GŁÓWNY (ZAKŁADKI + CIEMNE KAFELKI)
 # ==========================================================
 kat_list = ["Zadania bieżące", "Zadania zrealizowane"]
 if zalogowany == "Andrzej": kat_list.append("Terminy Sławka")
@@ -135,9 +153,11 @@ for i, kat in enumerate(kat_list[:-1]):
         df = pobierz_df(kat)
         if not df.empty:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
+            
+            # KAFELKI W KOLORZE LEWEJ KOLUMNY (CIEMNE)
             m1, m2, m3 = st.columns(3)
-            m1.metric("📋 Razem", len(df))
-            m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
+            m1.metric("📋 Razem zadań", len(df))
+            m2.metric("🔥 Pilne / Spóźnione", len(df[df['DNI_N'] >= -2]))
             m3.metric("🕒 Godzina", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
             
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
@@ -155,23 +175,21 @@ for i, kat in enumerate(kat_list[:-1]):
 
 # CZAT Z WYBOREM ADRESATA
 with tabs[-1]:
-    st.subheader("Komunikacja w dziale")
+    st.subheader("Wybierz adresata i napisz wiadomość")
     c1, c2, c3 = st.columns([1, 3, 1])
     with c1:
-        do_kogo = st.selectbox("Do kogo:", ["Wszyscy"] + [name for name in uzytkownicy.keys() if name != zalogowany])
+        do_kogo = st.selectbox("Adresat:", ["Wszyscy"] + [name for name in uzytkownicy.keys() if name != zalogowany])
     with c2:
-        msg = st.text_input("Treść wiadomości...", key="chat_in")
+        msg = st.text_input("Twoja wiadomość...", key="chat_in")
     with c3:
-        st.write(" ") # wyrównanie
+        st.write(" ")
         if st.button("WYŚLIJ 📩", use_container_width=True):
             if msg and wyslij_chat(zalogowany, do_kogo, msg): st.rerun()
     
     st.divider()
-    # Zakładka Czat musi mieć kolumny: Data, Autor, Adresat, Wiadomość
     df_c = pobierz_df("Czat")
     if not df_c.empty:
         for _, r in df_c.iloc[::-1].iterrows():
-            # Filtrowanie: widzisz wiadomości do Ciebie lub do Wszystkich
             if r['Adresat'] in [zalogowany, "Wszyscy"] or r['Autor'] == zalogowany:
                 st.markdown(f"""
                     <div class="chat-bubble">
