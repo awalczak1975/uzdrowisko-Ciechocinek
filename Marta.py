@@ -9,25 +9,13 @@ from streamlit_autorefresh import st_autorefresh
 # ==========================================================
 # 1. KONFIGURACJA STRONY
 # ==========================================================
-st.set_page_config(
-    page_title="System Uzdrowisko", 
-    layout="wide", 
-    initial_sidebar_state="expanded"
-)
-
+st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=300000, key="datarefresh")
 
 # ==========================================================
 # 2. DANE DOSTĘPOWE
 # ==========================================================
-KLUCZE_DOSTEPU = {
-    "Andrzej": "8800",
-    "Marta": "1234",
-    "Rafał": "5566",
-    "Agata": "9911",
-    "Sławek": "4422"
-}
-
+KLUCZE_DOSTEPU = {"Andrzej": "8800", "Marta": "1234", "Rafał": "5566", "Agata": "9911", "Sławek": "4422"}
 TELEGRAM_TOKEN = "7547926145:AAHnOIdm6n6_uK03Kk_o0-U0q2F8C_xLpY8"
 TELEGRAM_CHAT_ID = "543788771"
 NAZWA_ARKUSZA = "Marta-Dział Techniczny"
@@ -49,12 +37,6 @@ else:
 # ==========================================================
 # 4. FUNKCJE POMOCNICZE
 # ==========================================================
-def wyslij_telegram(wiadomosc):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": wiadomosc, "parse_mode": "HTML"}
-    try: requests.post(url, json=payload, timeout=5)
-    except: pass
-
 def polacz_z_google():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
         st.secrets["gcp_service_account"], 
@@ -79,109 +61,91 @@ st.markdown("""
     <style>
     .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
-    .stButton button {
-        background-color: #334155 !important; color: white !important;
-        border: 1px solid #94a3b8 !important; text-transform: uppercase !important;
-        font-size: 0.8rem !important;
-    }
-    [data-testid="stMetric"] { 
-        background-color: white !important; border-top: 4px solid #eab308 !important; 
-        border-radius: 8px !important; padding: 10px !important; 
-    }
-    .tg_btn { 
-        background-color: #0ea5e9 !important; border-radius: 4px !important; 
-        display: flex; align-items: center; justify-content: center; 
-        color: white !important; font-weight: bold !important; height: 40px !important; 
-        text-decoration: none !important; margin-top: 20px; font-size: 0.8rem;
-    }
+    .stButton button { background-color: #334155 !important; color: white !important; border: 1px solid #94a3b8 !important; text-transform: uppercase !important; font-size: 0.8rem !important; }
+    [data-testid="stMetric"] { background-color: white !important; border-top: 4px solid #eab308 !important; border-radius: 8px !important; padding: 10px !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 6. OKNO DODAWANIA ZADANIA
+# 6. PANEL BOCZNY I DIALOG
 # ==========================================================
 @st.dialog("➕ Dodaj nowe zadanie")
 def dodaj_zadanie_dialog():
-    with st.form("form_dodaj"):
+    with st.form("form_nowe"):
         tresc = st.text_area("Treść zadania:")
-        domyslny_osoba = zalogowany_uzytkownik if zalogowany_uzytkownik in LISTA_OSOB else "Brak"
-        osoba = st.selectbox("Przypisz do:", ["Brak"] + LISTA_OSOB, index=(["Brak"] + LISTA_OSOB).index(domyslny_osoba))
-        termin = st.date_input("Termin realizacji:", datetime.now())
-        uwagi = st.text_input("Dodatkowe uwagi:")
-        if st.form_submit_button("ZAPISZ DO ARKUSZA"):
+        osoba = st.selectbox("Przypisz do:", ["Brak"] + LISTA_OSOB)
+        termin = st.date_input("Termin:", datetime.now())
+        if st.form_submit_button("ZAPISZ"):
             try:
                 client = polacz_z_google()
-                sheet = client.open(NAZWA_ARKUSZA).worksheet("Zadania bieżące")
-                osoba_zapis = "" if osoba == "Brak" else osoba
-                sheet.append_row([tresc, osoba_zapis, termin.strftime("%d.%m.%Y"), uwagi, "W toku"])
-                wyslij_telegram(f"🔔 <b>NOWE ZADANIE</b>\n\n📝 {tresc}\n👤 Dla: {osoba}\n✍️ Dodał: {zalogowany_uzytkownik}")
-                st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
+                # Zapisujemy do "Zadania bieżące" lub "Terminy Sławka" w zależności od wyboru
+                cel = "Terminy Sławka" if osoba == "Sławek" else "Zadania bieżące"
+                sheet = client.open(NAZWA_ARKUSZA).worksheet(cel)
+                sheet.append_row([tresc, osoba if osoba != "Brak" else "", termin.strftime("%d.%m.%Y"), "", "W toku"])
+                st.success("Dodano!"); st.cache_data.clear(); st.rerun()
             except: st.error("Błąd zapisu")
 
-# ==========================================================
-# 7. PANEL BOCZNY
-# ==========================================================
 with st.sidebar:
-    st.markdown("<h2 style='color: #0ea5e9; text-align:center;'>UZDROWISKO<br><span style='color:#eab308'>CIECHOCINEK</span></h2>", unsafe_allow_html=True)
-    st.divider()
+    st.markdown("<h3 style='color: #0ea5e9; text-align:center;'>UZDROWISKO CIECHOCINEK</h3>", unsafe_allow_html=True)
     if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): dodaj_zadanie_dialog()
     if st.button("🔄 ODŚWIEŻ DANE", use_container_width=True): st.cache_data.clear(); st.rerun()
-    st.markdown(f'<a href="https://t.me/share/url?text=Monitorowanie" class="tg_btn">✈️ WYŚLIJ NA TELEGRAM</a>', unsafe_allow_html=True)
-    st.markdown(f"<div style='text-align:center; color:#94a3b8; margin-top:50px; font-size:0.8rem;'>Zalogowany: <b>{zalogowany_uzytkownik}</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center; color:#94a3b8; margin-top:30px;'>Zalogowany: {zalogowany_uzytkownik}</div>", unsafe_allow_html=True)
 
 # ==========================================================
-# 8. WIDOK GŁÓWNY
+# 7. WIDOK GŁÓWNY (Trzy przyciski)
 # ==========================================================
-st.markdown('<h3 style="text-align:center; color: #1e293b;">Centrum Zarządzania Administracją</h3>', unsafe_allow_html=True)
-
 if 'widok' not in st.session_state: st.session_state['widok'] = 'biezace'
 
-c1, c2 = st.columns(2)
+# Przyciski na górze (Trzy kolumny)
+c1, c2, c3 = st.columns(3)
 with c1:
-    if st.button("📋 ZADANIA BIEŻĄCE", use_container_width=True): st.session_state['widok'] = 'biezace'
+    if st.button("📋 BIEŻĄCE", use_container_width=True): st.session_state['widok'] = 'biezace'
 with c2:
     if st.button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
+with c3:
+    if st.button("🔧 SŁAWEK", use_container_width=True): st.session_state['widok'] = 'slawek'
 
-zakladka_nazwa = "Zadania bieżące" if st.session_state['widok'] == 'biezace' else "Zadania zrealizowane"
+# Mapowanie widoku na nazwę zakładki w Google Sheets
+mapa_zakladek = {
+    'biezace': "Zadania bieżące",
+    'zrealizowane': "Zadania zrealizowane",
+    'slawek': "Terminy Sławka"
+}
+
+zakladka_nazwa = mapa_zakladek[st.session_state['widok']]
 df = pobierz_dane(zakladka_nazwa)
 
 if not df.empty:
-    # 1. Usuwanie pustych wierszy
+    # Czyszczenie pustych wierszy
     df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
 
-    # 2. Sortowanie chronologiczne
+    # Sortowanie dat
     if 'TERMIN' in df.columns:
         df['temp_date'] = pd.to_datetime(df['TERMIN'], dayfirst=True, errors='coerce')
         df = df.sort_values(by='temp_date', ascending=True).drop(columns=['temp_date'])
 
-    # 3. Filtrowanie uprawnień
+    # Filtrowanie uprawnień (Sławek widzi TYLKO zakładkę Sławek)
     if not czy_admin:
         if zalogowany_uzytkownik == "Sławek":
-            df = df[df['OSOBA'] == "Sławek"]
+            if st.session_state['widok'] != 'slawek':
+                st.warning("Brak uprawnień do tego widoku.")
+                st.stop()
         else:
-            df = df[df['OSOBA'] != "Sławek"]
+            # Inni (Rafał/Agata) nie widzą zakładki Sławka
+            if st.session_state['widok'] == 'slawek':
+                st.warning("Tylko Sławek i Admin mają tu dostęp.")
+                st.stop()
 
-    # 4. Metryki
+    # Metryki
     m1, m2, m3 = st.columns(3)
     m1.metric("📋 Razem", len(df))
-    
-    if st.session_state['widok'] == 'biezace' and 'DNI' in df.columns:
+    if 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
-        m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
-    else:
-        m2.metric("✅ Status", "Zarchiwizowane")
+        m2.metric("🔥 Pilne", len(df[df['DNI_N'] >= -2]))
+    else: m2.metric("Status", "Aktywne")
     m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
 
-    # 5. Wyświetlanie tabeli - OSTATECZNA POPRAWKA BŁĘDU
-    # Całkowicie usuwamy parametr alignment, który powoduje błąd w wersji 1.52.2
-    st.data_editor(
-        df, 
-        use_container_width=True, 
-        hide_index=True, 
-        height=650,
-        column_config={
-            "DNI_N": None  # Ukrywamy kolumnę techniczną
-        }
-    )
+    # Wyświetlanie
+    st.data_editor(df, use_container_width=True, hide_index=True, height=600, column_config={"DNI_N": None})
 else:
-    st.info("Brak danych.")
+    st.info(f"Brak zadań w: {zakladka_nazwa}")
