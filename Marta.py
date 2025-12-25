@@ -48,13 +48,23 @@ def polacz_z_google():
 def pobierz_dane(zakladka):
     try:
         client = polacz_z_google()
-        sheet = client.open(NAZWA_ARKUSZA).worksheet(zakladka)
-        dane = sheet.get('A1:E500') 
-        if not dane: return pd.DataFrame()
-        # Tworzymy DataFrame i upewniamy się, że nazwy kolumn są czyste
-        df = pd.DataFrame(dane[1:], columns=dane[0])
-        return df
-    except:
+        # Próba otwarcia arkusza z ignorowaniem spacji na końcach nazwy
+        sheet_list = client.open(NAZWA_ARKUSZA).worksheets()
+        target_ws = None
+        for ws in sheet_list:
+            if ws.title.strip() == zakladka.strip():
+                target_ws = ws
+                break
+        
+        if not target_ws:
+            return pd.DataFrame()
+
+        dane = target_ws.get('A1:E500') 
+        if not dane or len(dane) < 2: 
+            return pd.DataFrame()
+            
+        return pd.DataFrame(dane[1:], columns=dane[0])
+    except Exception as e:
         return pd.DataFrame()
 
 # ==========================================================
@@ -70,7 +80,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 6. OKNO DODAWANIA ZADANIA
+# 6. DIALOG I SIDEBAR
 # ==========================================================
 @st.dialog("➕ Dodaj nowe zadanie")
 def dodaj_zadanie_dialog():
@@ -114,28 +124,28 @@ if czy_andrzej:
     with c3:
         if st.button("🔧 SŁAWEK", use_container_width=True): st.session_state['widok'] = 'slawek'
 
-mapa_zakladek = {'biezace': "Zadania bieżące", 'zrealizowane': "Zadania zrealizowane", 'slawek': "Terminy Sławka"}
-zakladka_nazwa = mapa_zakladek[st.session_state['widok']]
+mapy = {'biezace': "Zadania bieżące", 'zrealizowane': "Zadania zrealizowane", 'slawek': "Terminy Sławka"}
+zakladka_nazwa = mapy[st.session_state['widok']]
 df = pobierz_dane(zakladka_nazwa)
 
 if not df.empty:
-    # 1. Usuwanie pustych wierszy na podstawie kolumny A
+    # Czyszczenie wierszy
     df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
 
-    # 2. Sortowanie daty (Obsługa kolumn TERMIN lub DEADLINE)
-    kolumna_terminu = "DEADLINE" if "DEADLINE" in df.columns else "TERMIN"
-    if kolumna_terminu in df.columns:
-        df['temp_date'] = pd.to_datetime(df[kolumna_terminu], dayfirst=True, errors='coerce')
+    # Sortowanie (szukamy dowolnej kolumny z datą)
+    cols = [c for c in df.columns if c in ['TERMIN', 'DEADLINE', 'DATA']]
+    if cols:
+        df['temp_date'] = pd.to_datetime(df[cols[0]], dayfirst=True, errors='coerce')
         df = df.sort_values(by='temp_date', ascending=True).drop(columns=['temp_date'])
 
-    # 3. Filtrowanie uprawnień
+    # Filtry uprawnień
     if zalogowany_uzytkownik == "Sławek":
-        if st.session_state['widok'] == 'slawek': pass
-        else: df = df[df['OSOBA'] == "Sławek"]
+        if st.session_state['widok'] != 'slawek':
+            df = df[df['OSOBA'] == "Sławek"]
     elif zalogowany_uzytkownik not in ["Andrzej", "Marta"]:
-        df = df[df['OSOBA'] != "Sławek"]
+        df = df[df.get('OSOBA', '') != "Sławek"]
 
-    # 4. Metryki
+    # Metryki
     m1, m2, m3 = st.columns(3)
     m1.metric("📋 Razem", len(df))
     if 'DNI' in df.columns:
@@ -144,7 +154,6 @@ if not df.empty:
     else: m2.metric("Status", "Aktywne")
     m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
 
-    # 5. Tabela - Usunięto parametr alignment, aby uniknąć błędu TypeError
     st.data_editor(df, use_container_width=True, hide_index=True, height=650, column_config={"DNI_N": None})
 else:
     st.info(f"Brak zadań w: {zakladka_nazwa}")
