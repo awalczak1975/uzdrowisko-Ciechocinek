@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (STABILIZACJA 9.0)
+# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA GRAFIKI CZATU)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -32,7 +32,6 @@ st.markdown("""
         text-align: center;
         margin-top: 15px;
         border: 2px solid white;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
 
     .cal-container { background: white; padding: 6px; border-radius: 8px; border: 2px solid #eab308; width: 100%; margin-bottom: 10px; }
@@ -44,8 +43,23 @@ st.markdown("""
     .term-box { background: #334155; padding: 12px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 8px; color: white; font-size: 0.72rem; }
     .sidebar-header { color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 8px; }
     
+    /* POPRAWKA GRAFIKI ZAKŁADEK (W TYM CZAT) */
+    button[data-baseweb="tab"] { 
+        font-size: 1.1rem !important; 
+        font-weight: 700 !important; 
+        color: #1e293b !important; 
+        background-color: #e2e8f0 !important; 
+        border-radius: 8px 8px 0 0 !important; 
+        padding: 10px 25px !important;
+        border: none !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] { 
+        color: white !important; 
+        background-color: #1e293b !important; 
+        border-bottom: 4px solid #eab308 !important; 
+    }
+
     [data-testid="stMetricValue"] > div { color: #eab308 !important; font-weight: 900 !important; font-size: 1.8rem !important; }
-    [data-testid="stMetricLabel"] > div { color: white !important; font-weight: 600 !important; }
     [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -62,22 +76,23 @@ def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
     return gspread.authorize(creds)
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=15)
 def pobierz_arkusz(nazwa):
     try:
         ws = polacz().open("Marta-Dział Techniczny").worksheet(nazwa)
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
         df = pd.DataFrame(dane[1:], columns=dane[0])
-        # Filtracja pustych wierszy (rozwiązuje problem ze zdjęcia nr 8)
         return df[df['TREŚĆ ZADANIA'].str.strip() != ""].copy()
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR (STABILNY UKŁAD)
+# 3. SIDEBAR
 # ==========================================================
-df_biez_raw = pobierz_arkusz("Zadania bieżące")
-df_zreal_raw = pobierz_arkusz("Zadania zrealizowane")
+df_biez_full = pobierz_arkusz("Zadania bieżące")
+df_zreal_full = pobierz_arkusz("Zadania zrealizowane")
+df_chat = pobierz_arkusz("CZAT")
+has_new = not df_chat[(df_chat['ODBIORCA'] == zalogowany) & (df_chat['STATUS'] == "NIEPRZECZYTANE")].empty if not df_chat.empty else False
 
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><img src="{LOGO_URL}"></div>', unsafe_allow_html=True)
@@ -90,8 +105,8 @@ with st.sidebar:
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_taskami = set()
-    if not df_biez_raw.empty:
-        df_f = df_biez_raw if zalogowany == "Andrzej" else df_biez_raw[df_biez_raw['OSOBA'].str.contains(zalogowany, na=False)]
+    if not df_biez_full.empty:
+        df_f = df_biez_full if zalogowany == "Andrzej" else df_biez_full[df_biez_full['OSOBA'].str.contains(zalogowany, na=False)]
         deadlines = pd.to_datetime(df_f['DEADLINE'], errors='coerce', dayfirst=True)
         dni_z_taskami = set(deadlines[(deadlines.dt.month == now.month) & (deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
@@ -108,23 +123,23 @@ with st.sidebar:
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
-    if not df_biez_raw.empty:
-        df_side = df_biez_raw if zalogowany == "Andrzej" else df_biez_raw[df_biez_raw['OSOBA'].str.contains(zalogowany, na=False)]
+    if not df_biez_full.empty:
+        df_side = df_biez_full if zalogowany == "Andrzej" else df_biez_full[df_biez_full['OSOBA'].str.contains(zalogowany, na=False)]
         for _, r in df_side.head(4).iterrows():
             dni_v = pd.to_numeric(r.get('DNI', 0), errors='coerce')
             st.markdown(f'<div class="term-box">{"🔥" if dni_v >= -2 else "🟢"} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
     
-    u_name = "ANDRZEJ WALCZAK" if zalogowany == "Andrzej" else zalogowany.upper()
-    st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {u_name}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {"ANDRZEJ WALCZAK" if zalogowany == "Andrzej" else zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (POPRAWNE LICZNIKI I WIDOCZNY ARKUSZ)
+# 4. WIDOK GŁÓWNY (POPRAWNE LICZNIKI I GRAFIKA)
 # ==========================================================
-tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "💬 CZAT"])
+chat_tab_label = f"💬 CZAT {'🔴' if has_new else ''}"
+tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", chat_tab_label])
 now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
 
-# Licznik Zrealizowanych (poprawka ze zdjęcia nr 7 - zliczanie zamiast sumowania)
-count_zreal = len(df_zreal_raw) if not df_zreal_raw.empty else 0
+# Licznik Zrealizowanych (Zliczanie niepustych komórek w Kolumnie A)
+count_zreal = df_zreal_full.iloc[:, 0].replace('', pd.NA).dropna().count() if not df_zreal_full.empty else 0
 
 for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
     with tabs[i]:
@@ -132,19 +147,17 @@ for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy
         m1, m2, m3, m4 = st.columns(4)
         
         if not df_tab.empty:
-            # Licznik Razem (Zliczanie wierszy, rozwiązuje błąd 13500)
-            count_razem = len(df_tab)
+            # Licznik Razem: Zliczanie niepustych komórek w Kolumnie A (Naprawa 13500)
+            count_razem = df_tab.iloc[:, 0].replace('', pd.NA).dropna().count()
             df_tab['DNI_N'] = pd.to_numeric(df_tab['DNI'], errors='coerce').fillna(-999)
             
-            m1.metric("📋 Razem", count_razem)
+            m1.metric("📋 Razem", int(count_razem))
             m2.metric("🔥 Pilne (-2+)", len(df_tab[df_tab['DNI_N'] >= -2]))
-            m3.metric("✅ Zrealizowane", count_zreal)
+            m3.metric("✅ Zrealizowane", int(count_zreal))
             m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
             
-            # Formułowanie treści z ikoną
+            # Ikonki
             df_tab['TREŚĆ ZADANIA'] = df_tab.apply(lambda r: f"{('🔥 ' if r['DNI_N'] >= -2 else '🟢 ')}{r['TREŚĆ ZADANIA']}", axis=1)
-            
-            # Wyświetlanie arkusza (Najważniejsze dla Zdjęć 1, 5, 9, 10)
             st.data_editor(df_tab.drop(columns=['DNI_N']), use_container_width=True, hide_index=True, height=800)
         else:
             m1.metric("📋 Razem", 0); m2.metric("🔥 Pilne (-2+)", 0)
