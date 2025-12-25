@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA
+# 1. KONFIGURACJA I STYLIZACJA (WYDŁUŻONY ARKUSZ)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -17,9 +17,9 @@ LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocine
 
 st.markdown("""
     <style>
-    .block-container { padding-top: 1rem !important; }
+    .block-container { padding-top: 0.5rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
-    .logo-container { text-align: center; margin-top: -65px !important; margin-bottom: 30px !important; padding-bottom: 5px; }
+    .logo-container { text-align: center; margin-top: -70px !important; margin-bottom: 25px !important; padding-bottom: 5px; }
     .logo-container img { width: 200px; cursor: pointer; }
     .sticky-user-badge { position: fixed; bottom: 15px; left: 15px; width: 270px; background-color: #eab308; color: #1e293b !important; padding: 5px 10px; border-radius: 6px; font-weight: 800; font-size: 0.75rem; text-align: center; z-index: 999999; box-shadow: 0 4px 10px rgba(0,0,0,0.4); border: 1px solid white; }
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 1.8rem !important; }
@@ -28,7 +28,7 @@ st.markdown("""
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; margin-right: 5px; padding: 10px 25px !important; border: 1px solid #cbd5e1 !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
     .term-box { background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.72rem; }
-    .sidebar-header-nav { color: #eab308; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; margin-top: -12px !important; margin-bottom: 5px !important; }
+    .sidebar-header-nav { color: #eab308; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; margin-top: -15px !important; margin-bottom: 5px !important; }
     .sidebar-header { color: #eab308; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }
     </style>
     """, unsafe_allow_html=True)
@@ -82,7 +82,7 @@ def generuj_kalendarz_html(df_zadania, user):
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 4. SIDEBAR (GRAFIKA OGIEŃ 🔥)
+# 4. SIDEBAR
 # ==========================================================
 df_biez = pobierz_df_stabilnie("Zadania bieżące")
 df_zreal_count = pobierz_df_stabilnie("Zadania zrealizowane")
@@ -107,13 +107,12 @@ with st.sidebar:
         for _, r in df_side.head(5).iterrows():
             try:
                 dni_val = pd.to_numeric(r.get('DNI', 0), errors='coerce')
-                # ZAMIANA 🔴 NA 🔥 DLA SPÓJNOŚCI
                 status_icon = "🔥" if dni_val >= -2 else "🟢"
             except: status_icon = "⚪"
             st.markdown(f'<div class="term-box">{status_icon} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:32]}...</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 5. WIDOK GŁÓWNY (GRAFIKA OGIEŃ 🔥 W TABELI)
+# 5. WIDOK GŁÓWNY (WYDŁUŻONA TABELA)
 # ==========================================================
 chat_label = "💬 CZAT 🔴" if has_new else "💬 CZAT"
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", chat_label])
@@ -127,12 +126,9 @@ for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy S
         
         if not df.empty and 'DNI' in df.columns:
             df['DNI_NUM'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
-            
-            # Licznik Pilne
             pilne_count = len(df[df['DNI_NUM'] >= -2])
             m2.metric("🔥 Pilne (-2+)", pilne_count)
             
-            # ZAMIANA 🔴 NA 🔥 W GŁÓWNEJ TABELI
             def apply_fire_emoji(row):
                 icon = "🔥 " if row['DNI_NUM'] >= -2 else "🟢 "
                 return f"{icon}{row['TREŚĆ ZADANIA']}"
@@ -148,7 +144,8 @@ for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy S
         m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
         
         if not df_final.empty:
-            st.data_editor(df_final, use_container_width=True, hide_index=True, height=550)
+            # ZWIĘKSZONO WYSOKOŚĆ DO 800 DLA WYDŁUŻENIA ARKUSZA
+            st.data_editor(df_final, use_container_width=True, hide_index=True, height=800)
         else:
             st.info("Brak aktywnych zadań.")
 
