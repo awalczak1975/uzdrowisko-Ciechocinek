@@ -85,11 +85,8 @@ st.markdown("""
         font-size: 0.8rem !important;
     }
     [data-testid="stMetric"] { 
-        background-color: white !important; 
-        border-top: 4px solid #eab308 !important; 
-        border-radius: 8px !important; 
-        padding: 10px !important; 
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+        background-color: white !important; border-top: 4px solid #eab308 !important; 
+        border-radius: 8px !important; padding: 10px !important; 
     }
     .tg_btn { 
         background-color: #0ea5e9 !important; border-radius: 4px !important; 
@@ -152,11 +149,9 @@ if not df.empty:
     # 1. Usuwanie pustych wierszy
     df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
 
-    # 2. Sortowanie wg daty (Termin to zazwyczaj 3 kolumna - indeks 2)
+    # 2. Sortowanie chronologiczne
     if 'TERMIN' in df.columns:
-        # Konwersja na format daty dla potrzeb sortowania
         df['temp_date'] = pd.to_datetime(df['TERMIN'], dayfirst=True, errors='coerce')
-        # Sortowanie od najstarszej (zaległej) daty
         df = df.sort_values(by='temp_date', ascending=True).drop(columns=['temp_date'])
 
     # 3. Filtrowanie uprawnień
@@ -172,21 +167,26 @@ if not df.empty:
     
     if st.session_state['widok'] == 'biezace' and 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
+        # Pilne wg instrukcji: -2 dni do zadania, wartości dodatnie to opóźnienie
         m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
     else:
         m2.metric("✅ Status", "Zarchiwizowane")
-        
     m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
 
-    # 5. Tabela z konfiguracją (środkowanie DNI)
+    # 5. Wyświetlanie tabeli (POPRAWKA BŁĘDU TYPEERROR)
+    # Zmieniamy ogólne 'Column' na bardziej stabilne 'TextColumn'
     st.data_editor(
         df, 
         use_container_width=True, 
         hide_index=True, 
         height=650,
         column_config={
-            "DNI": st.column_config.Column("DNI", width="small", alignment="center"),
-            "DNI_N": None 
+            "DNI": st.column_config.TextColumn(
+                "DNI",
+                width="small",
+                alignment="center"
+            ),
+            "DNI_N": None  # Ukrywamy kolumnę techniczną
         }
     )
 else:
