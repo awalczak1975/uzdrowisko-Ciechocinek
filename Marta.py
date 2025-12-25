@@ -32,17 +32,7 @@ st.markdown("""
 
     .main-sheet-footer { margin-top: 15px; padding: 5px 15px; background-color: #1e293b; border-top: 3px solid #eab308; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; color: white; }
     
-    /* STYL LISTY TERMINÓW */
-    .term-box {
-        background: #334155; 
-        padding: 6px 8px; 
-        border-radius: 6px; 
-        border-left: 4px solid #ef4444; 
-        margin-bottom: 5px; 
-        color: white; 
-        font-size: 0.72rem;
-        line-height: 1.2;
-    }
+    .term-box { background: #334155; padding: 6px 8px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.72rem; line-height: 1.2; }
     .term-date { color: #eab308; font-weight: bold; margin-right: 5px; }
     </style>
     """, unsafe_allow_html=True)
@@ -58,14 +48,24 @@ def pobierz_df(zakladka):
     try:
         ws = polacz().open("Marta-Dział Techniczny").worksheet(zakladka)
         dane = ws.get_all_values()
-        if len(dane) < 1: return pd.DataFrame()
-        return pd.DataFrame(dane[1:], columns=dane[0])
+        if len(dane) < 2: return pd.DataFrame()
+        df = pd.DataFrame(dane[1:], columns=dane[0])
+        # Filtrowanie: bierzemy tylko wiersze, gdzie pierwsza kolumna (index 0) nie jest pusta
+        return df[df.iloc[:, 0].astype(str).str.strip() != ""]
     except: return pd.DataFrame()
 
 def dodaj_zadanie_do_arkusza(tresc, osoba, deadline, uwagi):
     try:
         ws = polacz().open("Marta-Dział Techniczny").worksheet("Zadania bieżące")
-        ws.append_row(["", tresc, uwagi, deadline, "", osoba, "W trakcie", "FALSE"])
+        # Dodajemy 'S' lub inny marker do kolumny A, aby funkcja zliczania go widziała
+        ws.append_row(["●", tresc, uwagi, deadline, "", osoba, "W trakcie", "FALSE"])
+        return True
+    except: return False
+
+def wyslij_wiadomosc(nadawca, odbiorca, tresc):
+    try:
+        ws = polacz().open("Marta-Dział Techniczny").worksheet("CZAT")
+        ws.append_row([datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%Y-%m-%d %H:%M:%S"), nadawca, odbiorca, tresc, "NIEPRZECZYTANE"])
         return True
     except: return False
 
@@ -84,7 +84,7 @@ def generuj_kalendarz_html():
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 3. LOGIKA I SIDEBAR (WIĘCEJ TERMINÓW)
+# 3. LOGIKA I SIDEBAR
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 if u == "Andrzej" and k == "8800": zalogowany = u
@@ -98,31 +98,19 @@ if not df_chat.empty and 'ODBIORCA' in df_chat.columns:
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><a href="?u={u}&k={k}" target="_self"><img src="{LOGO_URL}"></a></div>', unsafe_allow_html=True)
     
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
+    c_b1, c_b2 = st.columns(2)
+    with c_b1:
         if st.button("➕ DODAJ", use_container_width=True): st.session_state.show_form = True
-    with col_btn2:
+    with c_b2:
         if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
     
     st.components.v1.html(generuj_kalendarz_html(), height=155)
     
-    # ZWIĘKSZONA LISTA TERMINÓW (max 8 zadań)
-    st.markdown("<p style='color:white; font-size:0.85rem; font-weight:bold; margin: 10px 0 5px 0;'>📅 Nadchodzące zadania:</p>", unsafe_allow_html=True)
-    df_biez = pobierz_df("Zadania bieżące")
-    if not df_biez.empty:
-        # Sortowanie po dacie, jeśli kolumna DEADLINE istnieje
-        try:
-            df_biez['DT_SORT'] = pd.to_datetime(df_biez['DEADLINE'], dayfirst=True, errors='coerce')
-            df_biez = df_biez.sort_values(by='DT_SORT').dropna(subset=['DT_SORT'])
-        except: pass
-        
-        for _, r in df_biez.head(8).iterrows():
-            st.markdown(f"""
-                <div class="term-box">
-                    <span class="term-date">{r['DEADLINE']}</span><br>
-                    {r['TREŚĆ ZADANIA'][:45]}...
-                </div>
-            """, unsafe_allow_html=True)
+    st.markdown("<p style='color:white; font-size:0.85rem; font-weight:bold; margin: 10px 0 5px 0;'>📅 Nadchodzące:</p>", unsafe_allow_html=True)
+    df_biez_side = pobierz_df("Zadania bieżące")
+    if not df_biez_side.empty:
+        for _, r in df_biez_side.head(8).iterrows():
+            st.markdown(f'<div class="term-box"><span class="term-date">{r.get("DEADLINE", "")}</span><br>{str(r.get("TREŚĆ ZADANIA", ""))[:45]}...</div>', unsafe_allow_html=True)
 
     if has_new:
         st.markdown('<p style="color:#ef4444; font-weight:900; text-align:center; animation: blinker 1.5s linear infinite;">🔔 NOWA WIADOMOŚĆ!</p>', unsafe_allow_html=True)
@@ -150,7 +138,7 @@ if st.session_state.get('show_form', False):
             st.session_state.show_form = False; st.rerun()
 
 # ==========================================================
-# 5. WIDOK GŁÓWNY
+# 5. WIDOK GŁÓWNY (POPRAWIONE LICZENIE)
 # ==========================================================
 chat_label = "💬 CZAT (NOWY!)" if has_new else "💬 CZAT"
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", chat_label])
@@ -161,19 +149,27 @@ df_zrealizowane = pobierz_df("Zadania zrealizowane")
 for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
     with tabs[i]:
         df = pobierz_df(kat)
+        m1, m2, m3, m4 = st.columns(4)
+        
+        # Liczenie tylko rekordów z niepustą kolumną A
+        m1.metric("📋 Razem", len(df))
+        
+        if not df.empty and 'DNI' in df.columns:
+            df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
+            m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
+        else:
+            m2.metric("🔥 Pilne (-2+)", 0)
+            
+        m3.metric("✅ Zrealizowane", len(df_zrealizowane))
+        m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
+        
         if not df.empty:
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("📋 Razem", len(df))
-            if 'DNI' in df.columns:
-                df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
-                m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
-            m3.metric("✅ Zrealizowane", len(df_zrealizowane))
-            m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
             st.data_editor(df, use_container_width=True, hide_index=True, height=500)
 
+# CZAT
 with tabs[3]:
     if df_chat.empty or 'ODBIORCA' not in df_chat.columns:
-        st.warning("Brak nagłówków w arkuszu CZAT")
+        st.warning("Ustaw nagłówki w arkuszu CZAT")
     else:
         odbiorca = st.selectbox("Adresat:", ["Marta", "Sławek", "Agata", "Rafał", "Andrzej"])
         chat_box = st.container(height=350, border=True)
