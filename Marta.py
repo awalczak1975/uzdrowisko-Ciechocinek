@@ -29,7 +29,7 @@ key_url = st.query_params.get("k", "")
 
 if user_url in KLUCZE_DOSTEPU and KLUCZE_DOSTEPU[user_url] == key_url:
     zalogowany_uzytkownik = user_url
-    czy_admin = (user_url in ["Andrzej", "Marta"])
+    czy_andrzej = (user_url == "Andrzej")
 else:
     st.error("❌ BŁĄD DOSTĘPU: Nieprawidłowy link lub klucz.")
     st.stop()
@@ -67,22 +67,25 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 6. PANEL BOCZNY I DIALOG
+# 6. OKNO DODAWANIA ZADANIA
 # ==========================================================
 @st.dialog("➕ Dodaj nowe zadanie")
 def dodaj_zadanie_dialog():
     with st.form("form_nowe"):
         tresc = st.text_area("Treść zadania:")
-        osoba = st.selectbox("Przypisz do:", ["Brak"] + LISTA_OSOB)
+        osoba = st.selectbox("Osoba:", ["Brak"] + LISTA_OSOB)
         termin = st.date_input("Termin:", datetime.now())
         if st.form_submit_button("ZAPISZ"):
             try:
                 client = polacz_z_google()
-                # Zapisujemy do "Zadania bieżące" lub "Terminy Sławka" w zależności od wyboru
-                cel = "Terminy Sławka" if osoba == "Sławek" else "Zadania bieżące"
-                sheet = client.open(NAZWA_ARKUSZA).worksheet(cel)
-                sheet.append_row([tresc, osoba if osoba != "Brak" else "", termin.strftime("%d.%m.%Y"), "", "W toku"])
-                st.success("Dodano!"); st.cache_data.clear(); st.rerun()
+                if osoba == "Sławek":
+                    sheet = client.open(NAZWA_ARKUSZA).worksheet("Terminy Sławka")
+                    # Sławek ma kolumny: TREŚĆ ZADANIA, OSOBA, DEADLINE, DNI, NOTATKI
+                    sheet.append_row([tresc, "Sławek", termin.strftime("%d.%m.%Y"), "", ""])
+                else:
+                    sheet = client.open(NAZWA_ARKUSZA).worksheet("Zadania bieżące")
+                    sheet.append_row([tresc, osoba if osoba != "Brak" else "", termin.strftime("%d.%m.%Y"), "", "W toku"])
+                st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
             except: st.error("Błąd zapisu")
 
 with st.sidebar:
@@ -92,60 +95,56 @@ with st.sidebar:
     st.markdown(f"<div style='text-align:center; color:#94a3b8; margin-top:30px;'>Zalogowany: {zalogowany_uzytkownik}</div>", unsafe_allow_html=True)
 
 # ==========================================================
-# 7. WIDOK GŁÓWNY (Trzy przyciski)
+# 7. WIDOK GŁÓWNY
 # ==========================================================
 if 'widok' not in st.session_state: st.session_state['widok'] = 'biezace'
 
-# Przyciski na górze (Trzy kolumny)
-c1, c2, c3 = st.columns(3)
+# Przyciski widoku
+if czy_andrzej:
+    c1, c2, c3 = st.columns(3)
+else:
+    c1, c2 = st.columns(2)
+
 with c1:
     if st.button("📋 BIEŻĄCE", use_container_width=True): st.session_state['widok'] = 'biezace'
 with c2:
     if st.button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
-with c3:
-    if st.button("🔧 SŁAWEK", use_container_width=True): st.session_state['widok'] = 'slawek'
+if czy_andrzej:
+    with c3:
+        if st.button("🔧 SŁAWEK", use_container_width=True): st.session_state['widok'] = 'slawek'
 
-# Mapowanie widoku na nazwę zakładki w Google Sheets
-mapa_zakladek = {
-    'biezace': "Zadania bieżące",
-    'zrealizowane': "Zadania zrealizowane",
-    'slawek': "Terminy Sławka"
-}
-
+mapa_zakladek = {'biezace': "Zadania bieżące", 'zrealizowane': "Zadania zrealizowane", 'slawek': "Terminy Sławka"}
 zakladka_nazwa = mapa_zakladek[st.session_state['widok']]
 df = pobierz_dane(zakladka_nazwa)
 
 if not df.empty:
-    # Czyszczenie pustych wierszy
+    # Usuwanie całkowicie pustych wierszy
     df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
 
-    # Sortowanie dat
-    if 'TERMIN' in df.columns:
-        df['temp_date'] = pd.to_datetime(df['TERMIN'], dayfirst=True, errors='coerce')
+    # Sortowanie daty
+    kolumna_terminu = "DEADLINE" if st.session_state['widok'] == 'slawek' else "TERMIN"
+    if kolumna_terminu in df.columns:
+        df['temp_date'] = pd.to_datetime(df[kolumna_terminu], dayfirst=True, errors='coerce')
         df = df.sort_values(by='temp_date', ascending=True).drop(columns=['temp_date'])
 
-    # Filtrowanie uprawnień (Sławek widzi TYLKO zakładkę Sławek)
-    if not czy_admin:
-        if zalogowany_uzytkownik == "Sławek":
-            if st.session_state['widok'] != 'slawek':
-                st.warning("Brak uprawnień do tego widoku.")
-                st.stop()
-        else:
-            # Inni (Rafał/Agata) nie widzą zakładki Sławka
-            if st.session_state['widok'] == 'slawek':
-                st.warning("Tylko Sławek i Admin mają tu dostęp.")
-                st.stop()
+    # Filtrowanie Sławka
+    if zalogowany_uzytkownik == "Sławek":
+        if st.session_state['widok'] == 'slawek': pass
+        else: df = df[df['OSOBA'] == "Sławek"]
+    elif zalogowany_uzytkownik not in ["Andrzej", "Marta"]:
+        df = df[df['OSOBA'] != "Sławek"]
 
     # Metryki
     m1, m2, m3 = st.columns(3)
     m1.metric("📋 Razem", len(df))
     if 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
-        m2.metric("🔥 Pilne", len(df[df['DNI_N'] >= -2]))
+        # Pilne to te gdzie DNI jest ujemne (zrealizowane) lub bliskie 0
+        m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
     else: m2.metric("Status", "Aktywne")
     m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
 
-    # Wyświetlanie
-    st.data_editor(df, use_container_width=True, hide_index=True, height=600, column_config={"DNI_N": None})
+    # Tabela (bez parametru alignment aby uniknąć TypeError)
+    st.data_editor(df, use_container_width=True, hide_index=True, height=650, column_config={"DNI_N": None})
 else:
-    st.info(f"Brak zadań w: {zakladka_nazwa}")
+    st.info(f"Brak danych w: {zakladka_nazwa}")
