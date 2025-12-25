@@ -21,8 +21,6 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     .logo-container { text-align: center; margin-top: -35px !important; margin-bottom: 10px !important; }
     .logo-container img { width: 190px; cursor: pointer; }
-
-    /* KOMPAKTOWY I WIDOCZNY PASEK ZALOGOWANIA */
     .sticky-user-badge {
         position: fixed; bottom: 15px; left: 15px; width: 270px;
         background-color: #eab308; color: #1e293b !important;
@@ -30,42 +28,27 @@ st.markdown("""
         font-weight: 800; font-size: 0.75rem; text-align: center;
         z-index: 999999; box-shadow: 0 4px 10px rgba(0,0,0,0.4); border: 1px solid white;
     }
-
-    /* METRYKI WYŚRODKOWANE */
+    .term-box { background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.72rem; }
+    .sidebar-header { color: #eab308; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
     [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; padding: 10px !important; }
-
-    /* ZAKŁADKI */
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; margin-right: 5px; padding: 10px 25px !important; border: 1px solid #cbd5e1 !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
-
-    .term-box { background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.72rem; }
-    .sidebar-header { color: #eab308; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. BAZA UŻYTKOWNIKÓW I LOGOWANIE
+# 2. UŻYTKOWNICY I LOGOWANIE
 # ==========================================================
-USERS = {
-    "Andrzej": "8800",
-    "Marta": "1111",
-    "Sławek": "2222",
-    "Agata": "3333",
-    "Rafał": "4444",
-    "Pola": "5555"
-}
-
+USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Pola": "5555"}
 u_param = st.query_params.get("u", "")
 k_param = st.query_params.get("k", "")
 
 if u_param in USERS and USERS[u_param] == k_param:
     zalogowany = u_param
-    pełna_nazwa = f"{zalogowany} Walczak" if zalogowany == "Andrzej" else zalogowany
 else:
-    st.error("BŁĄD AUTORYZACJI: Nieprawidłowy link lub klucz użytkownika.")
-    st.stop()
+    st.error("BŁĄD AUTORYZACJI"); st.stop()
 
 # ==========================================================
 # 3. FUNKCJE TECHNICZNE
@@ -83,15 +66,22 @@ def pobierz_df(zakladka):
         return df[df.iloc[:, 0].astype(str).str.strip() != ""].copy()
     except: return pd.DataFrame()
 
-def generuj_kalendarz_html(df_zadania):
+def generuj_kalendarz_html(df_zadania, user):
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_terminami = []
+    
     if not df_zadania.empty and 'DEADLINE' in df_zadania.columns:
-        df_zadania['DT_TMP'] = pd.to_datetime(df_zadania['DEADLINE'], dayfirst=True, errors='coerce')
-        dni_z_terminami = df_zadania[df_zadania['DT_TMP'].dt.month == now.month]['DT_TMP'].dt.day.tolist()
+        # FILTRACJA PERSONALNA: Andrzej widzi wszystko, inni tylko swoje
+        if user != "Andrzej":
+            df_filtered = df_zadania[df_zadania['OSOBA'].str.contains(user, na=False)].copy()
+        else:
+            df_filtered = df_zadania.copy()
+            
+        df_filtered['DT_TMP'] = pd.to_datetime(df_filtered['DEADLINE'], dayfirst=True, errors='coerce')
+        dni_z_terminami = df_filtered[df_filtered['DT_TMP'].dt.month == now.month]['DT_TMP'].dt.day.tolist()
 
-    html = f'<div style="background:white; padding:8px; border-radius:8px; border:2px solid #eab308; font-family:sans-serif;"><table style="width:100%; border-collapse:collapse; line-height:1.2; font-size:11px;"><thead><tr><th colspan="7" style="color:#1e293b; text-align:center; font-weight:800; border-bottom:1px solid #eee; padding-bottom:5px; font-size:12px;">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
+    html = f'<div style="background:white; padding:8px; border-radius:8px; border:2px solid #eab308; font-family:sans-serif;"><table style="width:100%; border-collapse:collapse; line-height:1.2; font-size:11px;"><thead><tr><th colspan="7" style="color:#1e293b; text-align:center; font-weight:800; border-bottom:1px solid #eee; padding-bottom:5px;">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
     for week in cal:
         html += '<tr style="height:22px;">'
         for day in week:
@@ -105,7 +95,7 @@ def generuj_kalendarz_html(df_zadania):
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 4. SIDEBAR
+# 4. LOGIKA I SIDEBAR
 # ==========================================================
 df_biez = pobierz_df("Zadania bieżące")
 df_zreal = pobierz_df("Zadania zrealizowane")
@@ -115,25 +105,25 @@ has_new = False
 if not df_chat.empty and 'ODBIORCA' in df_chat.columns:
     has_new = not df_chat[(df_chat['ODBIORCA'] == zalogowany) & (df_chat['STATUS'] == "NIEPRZECZYTANE")].empty
 
-st.markdown(f'<div class="sticky-user-badge">👤 ZALOGOWANO: {pełna_nazwa.upper()}</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="sticky-user-badge">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><a href="?u={u_param}&k={k_param}" target="_self"><img src="{LOGO_URL}"></a></div>', unsafe_allow_html=True)
-    
-    st.markdown('<div class="sidebar-header" style="margin-top:-5px;">🧭 Nawigacja</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
-    with c1:
-        if st.button("➕ DODAJ", use_container_width=True): st.info("Dodaj zadanie w Arkuszu Google.")
-    with c2:
+    with c1: st.button("➕ DODAJ", use_container_width=True)
+    with c2: 
         if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
     
     st.markdown('<div style="border-top: 1px solid #334155; margin: 8px 0;"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-header">📅 Kalendarz</div>', unsafe_allow_html=True)
-    st.components.v1.html(generuj_kalendarz_html(df_biez), height=175)
+    st.markdown('<div class="sidebar-header">📅 Twoje Terminy</div>', unsafe_allow_html=True)
+    # Kalendarz z filtrem użytkownika
+    st.components.v1.html(generuj_kalendarz_html(df_biez, zalogowany), height=175)
     
-    st.markdown('<div class="sidebar-header">🕒 Nadchodzące (5)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-header">🕒 Nadchodzące Twoje</div>', unsafe_allow_html=True)
     if not df_biez.empty:
-        for _, r in df_biez.head(5).iterrows():
+        # Filtracja listy pod kalendarzem
+        df_side = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
+        for _, r in df_side.head(5).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:35]}...</div>', unsafe_allow_html=True)
 
 # ==========================================================
