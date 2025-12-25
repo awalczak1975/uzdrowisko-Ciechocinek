@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA BŁĘDU CZATU)
+# 1. KONFIGURACJA I STYLIZACJA (WYŚRODKOWANIE I STABILNOŚĆ)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -43,6 +43,7 @@ st.markdown("""
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 25px !important; border: none !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
 
+    /* KALENDARZ I PANEL */
     .cal-container { background: white; padding: 6px; border-radius: 8px; border: 2px solid #eab308; width: 100%; margin-bottom: 10px; }
     .cal-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 10px; color: #1e293b; }
     .cal-table td { text-align: center; padding: 3px 1px; font-weight: 700; border-radius: 3px; }
@@ -54,7 +55,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGOWANIE I POŁĄCZENIE
+# 2. DANE I LOGOWANIE
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -65,7 +66,7 @@ def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
     return gspread.authorize(creds)
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=15)
 def pobierz_arkusz(nazwa):
     try:
         sh = polacz().open("Marta-Dział Techniczny")
@@ -73,16 +74,17 @@ def pobierz_arkusz(nazwa):
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
         df = pd.DataFrame(dane[1:], columns=dane[0])
+        # Filtracja pustych wierszy
         if 'TREŚĆ ZADANIA' in df.columns:
             df = df[df['TREŚĆ ZADANIA'].str.strip() != ""].copy()
         return df
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR
+# 3. SIDEBAR (STABILNY)
 # ==========================================================
-df_biez_raw = pobierz_arkusz("Zadania bieżące")
-df_zreal_raw = pobierz_arkusz("Zadania zrealizowane")
+df_biez_full = pobierz_arkusz("Zadania bieżące")
+df_zreal_full = pobierz_arkusz("Zadania zrealizowane")
 
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><img src="{LOGO_URL}"></div>', unsafe_allow_html=True)
@@ -95,8 +97,8 @@ with st.sidebar:
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_taskami = set()
-    if not df_biez_raw.empty:
-        df_f = df_biez_raw if zalogowany == "Andrzej" else df_biez_raw[df_biez_raw['OSOBA'].str.contains(zalogowany, na=False)]
+    if not df_biez_full.empty:
+        df_f = df_biez_full if zalogowany == "Andrzej" else df_biez_full[df_biez_full['OSOBA'].str.contains(zalogowany, na=False)]
         deadlines = pd.to_datetime(df_f['DEADLINE'], errors='coerce', dayfirst=True)
         dni_z_taskami = set(deadlines[(deadlines.dt.month == now.month) & (deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
@@ -113,8 +115,8 @@ with st.sidebar:
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
-    if not df_biez_raw.empty:
-        df_side = df_biez_raw if zalogowany == "Andrzej" else df_biez_raw[df_biez_raw['OSOBA'].str.contains(zalogowany, na=False)]
+    if not df_biez_full.empty:
+        df_side = df_biez_full if zalogowany == "Andrzej" else df_biez_full[df_biez_full['OSOBA'].str.contains(zalogowany, na=False)]
         for _, r in df_side.head(4).iterrows():
             dni_v = pd.to_numeric(r.get('DNI', 0), errors='coerce')
             st.markdown(f'<div class="term-box">{"🔥" if dni_v >= -2 else "🟢"} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
@@ -122,59 +124,59 @@ with st.sidebar:
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {"ANDRZEJ WALCZAK" if zalogowany == "Andrzej" else zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (Z LICZNIKAMI)
+# 4. WIDOK GŁÓWNY (POPRAWNE LICZNIKI I PRZYWRÓCONY ARKUSZ)
 # ==========================================================
-tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "CZAT 🔴"]) # Kropka na stałe
+tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "CZAT 🔴"])
 now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
 
-# Licznik zrealizowanych (zliczanie wierszy)
-count_zreal = df_zreal_raw.iloc[:, 0].replace('', pd.NA).dropna().count() if not df_zreal_raw.empty else 0
+# Licznik Zrealizowanych (zliczanie wierszy w kolumnie A)
+count_zreal = df_zreal_full.iloc[:, 0].replace('', pd.NA).dropna().count() if not df_zreal_full.empty else 0
 
 for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
     with tabs[i]:
         df_tab = pobierz_arkusz(nazwa)
         m1, m2, m3, m4 = st.columns(4)
         if not df_tab.empty:
-            count_razem = df_tab.iloc[:, 0].replace('', pd.NA).dropna().count() # Zliczanie (nie 13500)
+            count_razem = df_tab.iloc[:, 0].replace('', pd.NA).dropna().count()
             df_tab['DNI_N'] = pd.to_numeric(df_tab['DNI'], errors='coerce').fillna(-999)
+            
             m1.metric("📋 Razem", int(count_razem))
             m2.metric("🔥 Pilne (-2+)", len(df_tab[df_tab['DNI_N'] >= -2]))
             m3.metric("✅ Zrealizowane", int(count_zreal))
             m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
-            df_tab['TREŚĆ ZADANIA'] = df_tab.apply(lambda r: f"{('🔥 ' if r['DNI_N'] >= -2 else '🟢 ')}{r['TREŚĆ ZADANIA']}", axis=1)
-            st.data_editor(df_tab.drop(columns=['DNI_N']), use_container_width=True, hide_index=True, height=700)
+            
+            df_v = df_tab.copy()
+            df_v['TREŚĆ ZADANIA'] = df_v.apply(lambda r: f"{('🔥 ' if r['DNI_N'] >= -2 else '🟢 ')}{r['TREŚĆ ZADANIA']}", axis=1)
+            # WYMUSZONE WYŚWIETLANIE (NAPRAWA PUSTYCH EKRANÓW ZE ZDJĘĆ)
+            st.data_editor(df_v.drop(columns=['DNI_N']), use_container_width=True, hide_index=True, height=750, key=f"editor_{nazwa}")
         else:
-            st.info("Brak zadań.")
+            st.info(f"Brak zadań w arkuszu: {nazwa}")
 
-# --- SEKCJA CZATU (Z NAPRAWIONYM BŁĘDEM BRAKU ARKUSZA) ---
+# --- SEKCJA CZATU Z ZABEZPIECZENIEM PRZED BŁĘDEM (ZDJĘCIE NR 10) ---
 with tabs[3]:
     st.subheader("💬 Komunikator firmowy")
-    sh = polacz().open("Marta-Dział Techniczny")
-    
     try:
+        sh = polacz().open("Marta-Dział Techniczny")
         ws_chat = sh.worksheet("CZAT")
         dane_chat = ws_chat.get_all_values()
         
         if len(dane_chat) > 1:
             df_chat = pd.DataFrame(dane_chat[1:], columns=dane_chat[0])
             moj_czat = df_chat[(df_chat['NADAWCA'] == zalogowany) | (df_chat['ODBIORCA'] == zalogowany)].tail(15)
-            
             for _, msg in moj_czat.iterrows():
-                is_me = msg['NADAWCA'] == zalogowany
-                align = "right" if is_me else "left"
-                bg = "#eab308" if is_me else "#f1f5f9"
-                st.markdown(f'<div style="text-align:{align}; margin-bottom:10px;"><div style="display:inline-block; background:{bg}; padding:10px; border-radius:10px; color:black; max-width:80%;"><b>{msg["NADAWCA"]}</b>: {msg["TREŚĆ"]}<br><small>{msg["DATA"]}</small></div></div>', unsafe_allow_html=True)
+                align = "right" if msg['NADAWCA'] == zalogowany else "left"
+                bg = "#eab308" if msg['NADAWCA'] == zalogowany else "#f1f5f9"
+                st.markdown(f'<div style="text-align:{align}; margin-bottom:10px;"><div style="display:inline-block; background:{bg}; padding:10px; border-radius:10px; color:black; max-width:85%;"><b>{msg["NADAWCA"]}</b>: {msg["TREŚĆ"]}<br><small>{msg["DATA"]}</small></div></div>', unsafe_allow_html=True)
         
-        with st.form("send_msg", clear_on_submit=True):
-            c1, c2, c3 = st.columns([2, 5, 1])
-            target = c1.selectbox("Do:", [u for u in USERS.keys() if u != zalogowany])
-            msg_text = c2.text_input("Napisz wiadomość...")
-            if c3.form_submit_button("Wyślij"):
+        with st.form("send_msg_form", clear_on_submit=True):
+            c_tar, c_tex, c_but = st.columns([2, 5, 1])
+            target = c_tar.selectbox("Do:", [u for u in USERS.keys() if u != zalogowany])
+            msg_text = c_tex.text_input("Napisz wiadomość...")
+            if c_but.form_submit_button("Wyślij"):
                 if msg_text:
                     ws_chat.append_row([now_pl.strftime("%Y-%m-%d %H:%M"), zalogowany, target, msg_text, "NIEPRZECZYTANE"])
                     st.cache_data.clear(); st.rerun()
-                    
-    except gspread.exceptions.WorksheetNotFound:
+    except:
         st.error("BŁĄD: Nie znaleziono zakładki 'CZAT' w arkuszu Google. Utwórz ją, aby komunikator działał.")
 
 st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now_pl.strftime("%d.%m.%Y | %H:%M")}</span></div>', unsafe_allow_html=True)
