@@ -43,13 +43,13 @@ if u_param in USERS and USERS[u_param] == k_param: zalogowany = u_param
 else: st.error("BŁĄD AUTORYZACJI"); st.stop()
 
 # ==========================================================
-# 3. FUNKCJE TECHNICZNE (STABILNY ODCZYT)
+# 3. FUNKCJE TECHNICZNE
 # ==========================================================
 def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
     return gspread.authorize(creds)
 
-@st.cache_data(ttl=60) # Cache danych na 60 sekund, aby uniknąć zerowania
+@st.cache_data(ttl=60)
 def pobierz_df_stabilnie(zakladka):
     try:
         ws = polacz().open("Marta-Dział Techniczny").worksheet(zakladka)
@@ -97,10 +97,9 @@ with st.sidebar:
     with c1: st.button("➕ DODAJ", use_container_width=True)
     with c2: 
         if st.button("🔄 ODSW", use_container_width=True): 
-            st.cache_data.clear() # Ręczne wymuszenie pobrania świeżych danych
+            st.cache_data.clear()
             st.rerun()
     st.markdown('<div style="border-top: 1px solid #334155; margin: 8px 0;"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-header">📅 Twoje Terminy</div>', unsafe_allow_html=True)
     st.components.v1.html(generuj_kalendarz_html(df_biez, zalogowany), height=175)
     st.markdown('<div class="sidebar-header">🕒 Nadchodzące Twoje</div>', unsafe_allow_html=True)
     if not df_biez.empty:
@@ -113,23 +112,41 @@ with st.sidebar:
             st.markdown(f'<div class="term-box">{status_icon} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:32]}...</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 5. WIDOK GŁÓWNY
+# 5. WIDOK GŁÓWNY (TABELA Z EMOTKAMI)
 # ==========================================================
 chat_label = "💬 CZAT 🔴" if has_new else "💬 CZAT"
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", chat_label])
 now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
+
 for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
     with tabs[i]:
         df = pobierz_df_stabilnie(kat)
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("📋 Razem", len(df))
+        
         if not df.empty and 'DNI' in df.columns:
+            # PRZYWRÓCENIE EMOTEK DO GŁÓWNEJ TABELI
+            def dodaj_emotke(row):
+                try:
+                    val = pd.to_numeric(row['DNI'], errors='coerce')
+                    prefix = "🔴 " if val >= -2 else "🟢 "
+                    return f"{prefix}{row['TREŚĆ ZADANIA']}"
+                except:
+                    return row['TREŚĆ ZADANIA']
+
+            df['TREŚĆ ZADANIA'] = df.apply(dodaj_emotke, axis=1)
+            
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
-        else: m2.metric("🔥 Pilne (-2+)", 0)
+        else:
+            m2.metric("🔥 Pilne (-2+)", 0)
+            
         m3.metric("✅ Zrealizowane", len(df_zreal))
         m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
-        if not df.empty: st.data_editor(df, use_container_width=True, hide_index=True, height=550)
-        else: st.info("Brak aktywnych zadań w tej sekcji.")
+        
+        if not df.empty:
+            st.data_editor(df, use_container_width=True, hide_index=True, height=550)
+        else:
+            st.info("Brak aktywnych zadań w tej sekcji.")
 
 st.markdown(f'<div style="margin-top: 15px; padding: 5px 15px; background-color: #1e293b; border-top: 3px solid #eab308; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; color: white;"><div style="color:#eab308; font-weight:800; font-size:0.8rem;">UZDROWISKO CIECHOCINEK S.A.</div><div>{now_pl.strftime("%d.%m.%Y | %H:%M:%S")}</div></div>', unsafe_allow_html=True)
