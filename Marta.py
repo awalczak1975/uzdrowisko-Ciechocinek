@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA
+# 1. KONFIGURACJA I STYLIZACJA (W TYM STOPKA GŁÓWNA)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
@@ -17,32 +17,36 @@ LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocine
 
 st.markdown("""
     <style>
-    .block-container { padding-top: 1rem !important; }
+    .block-container { padding-top: 1rem !important; padding-bottom: 2rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
+    /* LOGO */
     .logo-container { text-align: center; margin-top: -30px !important; margin-bottom: 20px !important; }
     .logo-container img { width: 200px; cursor: pointer; }
 
-    /* KAFELKI METRYK */
+    /* METRYKI */
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
     [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; padding: 10px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
 
-    /* ZAKŁADKI GÓRNE */
+    /* ZAKŁADKI */
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; margin-right: 5px !important; padding: 10px 25px !important; border: 1px solid #cbd5e1 !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
 
-    /* STOPKA W PANELU BOCZNYM */
-    .sidebar-footer-new {
+    /* --- NOWA STOPKA GŁÓWNEGO ARKUSZA --- */
+    .main-sheet-footer {
+        margin-top: 30px;
+        padding: 20px;
+        background-color: #f8fafc;
+        border-top: 5px solid #eab308;
+        border-radius: 0 0 15px 15px;
         text-align: center;
-        margin-top: 20px;
-        padding-top: 15px;
-        border-top: 1px solid #334155;
-        color: #94a3b8;
-        font-size: 0.75rem;
-        line-height: 1.4;
+        box-shadow: 0 -5px 15px rgba(0,0,0,0.05);
     }
-    .footer-highlight { color: #eab308; font-weight: bold; }
+    .footer-title { color: #1e293b; font-size: 1.2rem; font-weight: 800; letter-spacing: 1px; }
+    .footer-sub { color: #64748b; font-size: 0.9rem; margin-top: 5px; }
+    
+    .sidebar-footer-new { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #334155; color: #94a3b8; font-size: 0.75rem; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -79,7 +83,7 @@ def generuj_kalendarz_html(df_zadania):
         df_zadania['DT'] = pd.to_datetime(df_zadania['DEADLINE'], dayfirst=True, errors='coerce')
         df_zadania['DNI_N'] = pd.to_numeric(df_zadania['DNI'], errors='coerce').fillna(-999)
         pilne_daty = df_zadania[(df_zadania['DT'].dt.month == miesiac) & (df_zadania['DNI_N'] >= -2)]['DT'].dt.day.unique().tolist()
-
+    
     html = f'<div style="background:white; padding:10px; border-radius:10px; border:2px solid #eab308; font-family:sans-serif;"><table style="width:100%; border-collapse:collapse; line-height:1.1;"><thead><tr><th colspan="7" style="color:#1e293b; text-align:center; font-weight:800; font-size:13px; border-bottom:1px solid #eee;">{calendar.month_name[miesiac].upper()} {rok}</th></tr><tr style="color:#64748b; font-size:9px; text-align:center; font-weight:bold;"><th style="padding:2px 0;">PN</th><th style="padding:2px 0;">WT</th><th style="padding:2px 0;">ŚR</th><th style="padding:2px 0;">CZ</th><th style="padding:2px 0;">PT</th><th style="padding:2px 0;">SO</th><th style="padding:2px 0;">ND</th></tr></thead><tbody style="color:#1e293b;">'
     for week in cal:
         html += "<tr>"
@@ -108,10 +112,8 @@ df_total = pd.concat([df_biezace, df_slawek])
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><a href="?u={u}&k={k}" target="_self"><img src="{LOGO_URL}"></a></div>', unsafe_allow_html=True)
     st.markdown('<div style="border-bottom:1px solid #334155; margin:5px 0 10px 0;"></div>', unsafe_allow_html=True)
-    
     if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): st.info("Dodaj zadanie w Arkuszu.")
     if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True): st.cache_data.clear(); st.rerun()
-    
     st.components.v1.html(generuj_kalendarz_html(df_total), height=195)
     
     st.markdown("<p style='color:white; font-weight:bold; margin-bottom:5px; font-size:0.9rem;'>📅 Nadchodzące terminy:</p>", unsafe_allow_html=True)
@@ -120,19 +122,11 @@ with st.sidebar:
     for _, r in nadchodzace.iterrows():
         st.markdown(f"<div style='background-color:#334155; padding:8px; border-radius:8px; border-left:4px solid #ef4444; margin-bottom:6px;'><p style='color:white; font-size:0.8rem; margin:0;'><b>{r['DEADLINE']}</b>: {r['TREŚĆ ZADANIA']}</p></div>", unsafe_allow_html=True)
     
-    # --- NOWA STOPKA W SIDEBARZE ---
     now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
-    st.markdown(f"""
-        <div class="sidebar-footer-new">
-            <span class="footer-highlight">UZDROWISKO CIECHOCINEK S.A.</span><br>
-            Dział Techniczny | &copy; {now_pl.year}<br>
-            Zalogowany: <b>{zalogowany}</b><br>
-            <small>Aktualizacja: {now_pl.strftime('%H:%M:%S')}</small>
-        </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f'<div class="sidebar-footer-new">System Zarządzania &copy; {now_pl.year}<br>Użytkownik: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY
+# 4. WIDOK GŁÓWNY Z PODSUMOWANIEM NA DOLE
 # ==========================================================
 kat_list = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "🔴 CZAT"]
 tabs = st.tabs(kat_list)
@@ -146,11 +140,22 @@ for i, kat in enumerate(kat_list[:-1]):
             m1.metric("📋 Razem", len(df))
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
             m3.metric("✅ Zrealizowane", len(df_zrealizowane))
-            m4.metric("🕒 Ostatnia aktualizacja", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
+            m4.metric("🕒 Ostatnia aktualizacja", now_pl.strftime("%H:%M"))
             
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
-            edytowane = st.data_editor(df, use_container_width=True, hide_index=True, height=750, key=f"ed_{kat}")
+            edytowane = st.data_editor(df, use_container_width=True, hide_index=True, height=600, key=f"ed_{kat}")
             
             if st.button(f"💾 ZAPISZ ZMIANY: {kat.upper()}", key=f"btn_{kat}"):
                 if zapisz_df(edytowane.drop(columns=["S", "DNI_N"]), kat):
                     st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
+
+# --- DEDYKOWANA STOPKA POD ARKUSZEM ---
+st.markdown(f"""
+    <div class="main-sheet-footer">
+        <div class="footer-title">UZDROWISKO CIECHOCINEK S.A.</div>
+        <div class="footer-sub">
+            Oficjalny System Monitorowania Zadań Działu Technicznego<br>
+            Stan danych na dzień: <b>{now_pl.strftime('%d.%m.%Y')}</b> | Godzina: <b>{now_pl.strftime('%H:%M:%S')}</b>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
