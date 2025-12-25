@@ -19,7 +19,6 @@ KLUCZE_DOSTEPU = {"Andrzej": "8800", "Marta": "1234", "Rafał": "5566", "Agata":
 TELEGRAM_TOKEN = "7547926145:AAHnOIdm6n6_uK03Kk_o0-U0q2F8C_xLpY8"
 TELEGRAM_CHAT_ID = "543788771"
 NAZWA_ARKUSZA = "Marta-Dział Techniczny"
-LISTA_OSOB = list(KLUCZE_DOSTEPU.keys())
 
 # ==========================================================
 # 3. WERYFIKACJA UŻYTKOWNIKA
@@ -36,7 +35,7 @@ else:
     st.stop()
 
 # ==========================================================
-# 4. FUNKCJE GOOGLE SHEETS (Ograniczenie do 5 kolumn)
+# 4. FUNKCJE GOOGLE SHEETS
 # ==========================================================
 def polacz_z_google():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
@@ -48,29 +47,37 @@ def polacz_z_google():
 def pobierz_dane_final(nazwa_zakladki):
     try:
         client = polacz_z_google()
-        wb = client.open(NAZWA_ARKUSZA)
-        ws = wb.worksheet(nazwa_zakladki)
-        # POBIERAMY TYLKO ZAKRES A1:E500 (5 kolumn)
-        dane_raw = ws.get('A1:E500')
+        ws = client.open(NAZWA_ARKUSZA).worksheet(nazwa_zakladki)
+        # Pobieramy surowe dane (wszystkie, by nie pominąć nagłówków)
+        dane_raw = ws.get_all_values()
         if not dane_raw: return pd.DataFrame()
+        
+        # Tworzymy DataFrame i bierzemy tylko pierwsze 5 kolumn (A:E)
         df = pd.DataFrame(dane_raw[1:], columns=dane_raw[0])
+        df = df.iloc[:, :5]
+        
+        # Usuwamy puste wiersze (na podstawie kolumny A)
         df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
         return df
-    except:
+    except Exception as e:
+        st.error(f"Błąd odczytu zakładki '{nazwa_zakladki}': {e}")
         return pd.DataFrame()
 
 def aktualizuj_arkusz(df_nowy, nazwa_zakladki):
     try:
         client = polacz_z_google()
         ws = client.open(NAZWA_ARKUSZA).worksheet(nazwa_zakladki)
-        # Przygotowanie danych do zapisu (tylko 5 kolumn)
-        dane_do_zapisu = [df_nowy.columns.values.tolist()] + df_nowy.values.tolist()
-        # AKTUALIZUJEMY TYLKO ZAKRES A:E, aby nie uszkodzić formuł w kolumnie F
-        ostatni_wiersz = len(dane_do_zapisu)
-        zakres = f"A1:E{ostatni_wiersz}"
+        # Przygotowujemy dane (tylko 5 kolumn)
+        naglowki = df_nowy.columns.tolist()
+        wartosci = df_nowy.values.tolist()
+        dane_do_zapisu = [naglowki] + wartosci
+        
+        # Aktualizacja zakresu A1:E...
+        zakres = f"A1:E{len(dane_do_zapisu)}"
         ws.update(zakres, dane_do_zapisu)
         return True
-    except:
+    except Exception as e:
+        st.error(f"Błąd zapisu: {e}")
         return False
 
 # ==========================================================
@@ -81,11 +88,7 @@ st.markdown("""
     .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     .stButton button { background-color: #334155 !important; color: white !important; border: 1px solid #94a3b8 !important; font-size: 0.8rem !important; width: 100%; }
-    
-    [data-testid="stMetric"] { 
-        background-color: white !important; border-top: 4px solid #eab308 !important; 
-        border-radius: 8px !important; padding: 15px !important; text-align: center !important; 
-    }
+    [data-testid="stMetric"] { background-color: white !important; border-top: 4px solid #eab308 !important; border-radius: 8px !important; padding: 15px !important; text-align: center !important; }
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; font-weight: 900 !important; font-size: 2.2rem !important; color: #1e293b !important; }
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; font-size: 1.1rem !important; font-weight: 600 !important; }
     </style>
@@ -126,13 +129,13 @@ zakladka_aktualna = mapa[st.session_state['widok']]
 df = pobierz_dane_final(zakladka_aktualna)
 
 if not df.empty:
-    # Sortowanie daty
+    # Sortowanie (szukamy kolumny TERMIN lub DEADLINE)
     kol_data = "DEADLINE" if "DEADLINE" in df.columns else "TERMIN"
     if kol_data in df.columns:
         df['tmp'] = pd.to_datetime(df[kol_data], dayfirst=True, errors='coerce')
         df = df.sort_values(by='tmp', ascending=True).drop(columns=['tmp'])
 
-    # Filtry uprawnień
+    # Filtry
     if not czy_admin:
         if zalogowany_uzytkownik == "Sławek":
             if st.session_state['widok'] != 'slawek' and 'OSOBA' in df.columns:
@@ -146,12 +149,11 @@ if not df.empty:
     m1.metric("📋 Razem", len(df))
     if 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
-        # -2 dni do realizacji to pilne
         m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
     else: m2.metric("Status", "Aktywne")
     m3.metric("🕒 Godzina", datetime.now().strftime("%H:%M"))
 
-    # EDYTOR TABELI
+    # Edycja (tylko dla adminów)
     edited_df = st.data_editor(
         df, 
         use_container_width=True, 
@@ -161,15 +163,10 @@ if not df.empty:
         column_config={"DNI_N": None}
     )
 
-    # Przycisk zapisu dla Admina
     if czy_admin and not edited_df.equals(df):
         if st.button("💾 ZAPISZ ZMIANY (KOLUMNY A-E)", type="primary"):
-            # Upewniamy się, że zapisujemy tylko 5 kolumn, nawet jeśli w DataFrame jest ich więcej (np. DNI_N)
-            df_do_zapisu = edited_df.iloc[:, :5]
-            if aktualizuj_arkusz(df_do_zapisu, zakladka_aktualna):
-                st.success("Zaktualizowano kolumny A:E!")
+            if aktualizuj_arkusz(edited_df.iloc[:, :5], zakladka_aktualna):
+                st.success("Zapisano!")
                 st.cache_data.clear(); st.rerun()
-            else:
-                st.error("Błąd zapisu.")
 else:
     st.info(f"Brak zadań w: {zakladka_aktualna}")
