@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA ETYKIETY)
+# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA KALENDARZA)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -24,7 +24,7 @@ st.markdown("""
     .logo-container { text-align: center; margin-top: -65px !important; margin-bottom: 25px !important; }
     .logo-container img { width: 200px; }
     
-    /* --- NOWA, STABILNA ETYKIETA ZALOGOWANEGO --- */
+    /* ETYKIETA ZALOGOWANEGO */
     .user-info-footer {
         background-color: #eab308 !important;
         color: #1e293b !important;
@@ -33,7 +33,7 @@ st.markdown("""
         font-weight: 900;
         font-size: 0.85rem;
         text-align: center;
-        margin-top: 30px; /* Odstęp od ostatniego zadania */
+        margin-top: 25px;
         border: 2px solid white;
         box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
@@ -49,6 +49,13 @@ st.markdown("""
     
     .term-box { background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.72rem; }
     .sidebar-header { color: #eab308; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }
+    
+    /* STYLE DLA KALENDARZA HTML */
+    .cal-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 11px; color: #1e293b; }
+    .cal-table th { color: #1e293b; text-align: center; font-weight: 800; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+    .cal-table td { text-align: center; padding: 3px; font-weight: 700; border-radius: 4px; }
+    .day-today { background-color: #eab308 !important; color: #1e293b !important; }
+    .day-task { color: #ef4444 !important; border: 1px solid #ef4444 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -75,7 +82,42 @@ def pobierz_df(zakladka):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR (WIDOCZNY KOMPLET ELEMENTÓW)
+# 3. NOWA FUNKCJA KALENDARZA (NAPRAWIONA)
+# ==========================================================
+def generuj_kalendarz_html(df_zadania, user):
+    now = datetime.now(pytz.timezone('Europe/Warsaw'))
+    cal = calendar.monthcalendar(now.year, now.month)
+    dni_z_terminami = []
+    
+    if not df_zadania.empty and 'DEADLINE' in df_zadania.columns:
+        # Filtracja terminów dla zalogowanego
+        df_f = df_zadania if user == "Andrzej" else df_zadania[df_zadania['OSOBA'].str.contains(user, na=False)]
+        df_f['DT_TMP'] = pd.to_datetime(df_f['DEADLINE'], dayfirst=True, errors='coerce')
+        # Wyciągamy dni dla obecnego miesiąca
+        dni_z_terminami = df_f[df_f['DT_TMP'].dt.month == now.month]['DT_TMP'].dt.day.tolist()
+
+    html = f'<div style="background:white; padding:10px; border-radius:8px; border:2px solid #eab308;">'
+    html += f'<table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
+    
+    for week in cal:
+        html += '<tr>'
+        for day in week:
+            if day == 0:
+                html += '<td></td>'
+            else:
+                classes = []
+                if day == now.day: classes.append("day-today")
+                if day in dni_z_terminami: classes.append("day-task")
+                
+                class_str = " ".join(classes)
+                html += f'<td class="{class_str}">{day}</td>'
+        html += '</tr>'
+    
+    html += '</tbody></table></div>'
+    return html
+
+# ==========================================================
+# 4. SIDEBAR
 # ==========================================================
 df_biez = pobierz_df("Zadania bieżące")
 df_chat = pobierz_df("CZAT")
@@ -92,36 +134,22 @@ with st.sidebar:
     
     st.markdown('<div style="border-top:1px solid #334155; margin:10px 0;"></div>', unsafe_allow_html=True)
     
-    # SEKCJA TERMINÓW
+    # SEKCJA KALENDARZA
     st.markdown('<div class="sidebar-header" style="margin-top:-5px;">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
-    # Prosty kalendarz HTML
-    now = datetime.now(pytz.timezone('Europe/Warsaw'))
-    cal = calendar.monthcalendar(now.year, now.month)
-    cal_html = f'<div style="background:white; padding:8px; border-radius:8px; border:2px solid #eab308;"><table style="width:100%; border-collapse:collapse; font-size:11px; font-family:sans-serif;">'
-    for week in cal:
-        cal_html += '<tr style="height:20px;">'
-        for day in week:
-            if day == 0: cal_html += "<td></td>"
-            else:
-                bg = "#eab308" if day == now.day else "transparent"
-                cal_html += f'<td style="text-align:center; font-weight:700; background-color:{bg}; border-radius:4px;">{day}</td>'
-        cal_html += "</tr>"
-    cal_html += "</table></div>"
-    st.markdown(cal_html, unsafe_allow_html=True)
+    st.markdown(generuj_kalendarz_html(df_biez, zalogowany), unsafe_allow_html=True)
     
-    st.markdown('<div class="sidebar-header" style="margin-top:10px;">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-header" style="margin-top:15px;">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_biez.empty:
         df_side = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
         for _, r in df_side.head(5).iterrows():
             dni = pd.to_numeric(r.get('DNI', 0), errors='coerce')
             st.markdown(f'<div class="term-box">{"🔥" if dni >= -2 else "🟢"} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:30]}...</div>', unsafe_allow_html=True)
     
-    # --- ETYKIETA ZALOGOWANEGO (ZAINSTALOWANA NA SZTYWNO) ---
     u_name = "ANDRZEJ WALCZAK" if zalogowany == "Andrzej" else zalogowany.upper()
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {u_name}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY
+# 5. WIDOK GŁÓWNY
 # ==========================================================
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", f"💬 CZAT {'🔴' if has_new else ''}"])
 now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
@@ -138,11 +166,5 @@ for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy S
             df_v['TREŚĆ ZADANIA'] = df_v.apply(lambda r: f"{('🔥 ' if pd.to_numeric(r['DNI'], errors='coerce') >= -2 else '🟢 ')}{r['TREŚĆ ZADANIA']}", axis=1)
             st.data_editor(df_v.drop(columns=['D_N']), use_container_width=True, hide_index=True, height=800)
         m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
-
-with tabs[3]:
-    st.subheader("💬 Messenger Firmowy")
-    if not df_chat.empty:
-        hist = df_chat[(df_chat['NADAWCA'] == zalogowany) | (df_chat['ODBIORCA'] == zalogowany)].tail(15)
-        st.write("Wiadomości zostaną wyświetlone tutaj...") # Miejsce na dymki
 
 st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now_pl.strftime("%d.%m.%Y | %H:%M")}</span></div>', unsafe_allow_html=True)
