@@ -146,7 +146,7 @@ zakladka_nazwa = "Zadania bieżące" if st.session_state['widok'] == 'biezace' e
 df = pobierz_dane(zakladka_nazwa)
 
 if not df.empty:
-    # 1. Usuwanie pustych wierszy
+    # 1. Usuwanie pustych wierszy (tylko na podstawie kolumny A)
     df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
 
     # 2. Sortowanie chronologiczne
@@ -163,18 +163,17 @@ if not df.empty:
 
     # 4. Metryki
     m1, m2, m3 = st.columns(3)
+    # Razem liczone po oczyszczeniu z pustych wierszy
     m1.metric("📋 Razem", len(df))
     
     if st.session_state['widok'] == 'biezace' and 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
-        # Pilne wg instrukcji: -2 dni do zadania, wartości dodatnie to opóźnienie
         m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
     else:
         m2.metric("✅ Status", "Zarchiwizowane")
     m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
 
-    # 5. Wyświetlanie tabeli (POPRAWKA BŁĘDU TYPEERROR)
-    # Zmieniamy ogólne 'Column' na bardziej stabilne 'TextColumn'
+    # 5. Wyświetlanie tabeli - POPRAWIONA KONFIGURACJA
     st.data_editor(
         df, 
         use_container_width=True, 
@@ -182,7 +181,7 @@ if not df.empty:
         height=650,
         column_config={
             "DNI": st.column_config.TextColumn(
-                "DNI",
+                label="DNI",
                 width="small",
                 alignment="center"
             ),
