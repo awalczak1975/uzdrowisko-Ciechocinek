@@ -70,11 +70,13 @@ def pobierz_arkusz(nazwa):
         ws = polacz().open("Marta-Dział Techniczny").worksheet(nazwa)
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
-        return pd.DataFrame(dane[1:], columns=dane[0])
+        df = pd.DataFrame(dane[1:], columns=dane[0])
+        # Filtracja: usuwamy wiersze, gdzie treść zadania jest całkowicie pusta
+        return df[df['TREŚĆ ZADANIA'].str.strip() != ""].copy()
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR
+# 3. SIDEBAR (LOGIKA I KALENDARZ)
 # ==========================================================
 df_biez = pobierz_arkusz("Zadania bieżące")
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane")
@@ -115,15 +117,16 @@ with st.sidebar:
             dni_v = pd.to_numeric(r.get('DNI', 0), errors='coerce')
             st.markdown(f'<div class="term-box">{"🔥" if dni_v >= -2 else "🟢"} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
     
-    st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {"ANDRZEJ WALCZAK" if zalogowany == "Andrzej" else zalogowany.upper()}</div>', unsafe_allow_html=True)
+    u_name = "ANDRZEJ WALCZAK" if zalogowany == "Andrzej" else zalogowany.upper()
+    st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {u_name}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (POPRAWNY LICZNIK - ZLICZANIE, NIE SUMOWANIE)
+# 4. WIDOK GŁÓWNY (NAPRAWA PUSTYCH WIERSZY Z KROPKAMI)
 # ==========================================================
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", f"💬 CZAT"])
 now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
 
-# Licznik Zrealizowanych: ile jest niepustych komórek w Kolumnie A
+# Licznik Zrealizowanych (zliczanie niepustych komórek w Kolumnie A)
 count_zrealizowane = 0
 if not df_zreal_full.empty:
     count_zrealizowane = df_zreal_full.iloc[:, 0].replace('', pd.NA).dropna().count()
@@ -134,15 +137,24 @@ for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy
         m1, m2, m3, m4 = st.columns(4)
         
         if not df_raw.empty:
-            # Licznik Razem: ile jest niepustych komórek w Kolumnie A
+            # Licznik Razem (zliczanie niepustych komórek w Kolumnie A)
             count_razem = df_raw.iloc[:, 0].replace('', pd.NA).dropna().count()
             
             df_raw['DNI_N'] = pd.to_numeric(df_raw['DNI'], errors='coerce').fillna(-999)
             m1.metric("📋 Razem", int(count_razem))
             m2.metric("🔥 Pilne (-2+)", len(df_raw[df_raw['DNI_N'] >= -2]))
             
+            # KLUCZOWA POPRAWKA: Ikonka pojawia się TYLKO jeśli treść zadania nie jest pusta
+            def apply_icon(row):
+                if pd.isna(row['TREŚĆ ZADANIA']) or str(row['TREŚĆ ZADANIA']).strip() == "":
+                    return ""
+                icon = "🔥 " if row['DNI_N'] >= -2 else "🟢 "
+                return f"{icon}{row['TREŚĆ ZADANIA']}"
+            
             df_v = df_raw.copy()
-            df_v['TREŚĆ ZADANIA'] = df_v.apply(lambda r: f"{('🔥 ' if r['DNI_N'] >= -2 else '🟢 ')}{r['TREŚĆ ZADANIA']}", axis=1)
+            df_v['TREŚĆ ZADANIA'] = df_v.apply(apply_icon, axis=1)
+            
+            # Wyświetlanie tabeli bez dodatkowej kolumny liczbowej
             st.data_editor(df_v.drop(columns=['DNI_N']), use_container_width=True, hide_index=True, height=800)
         else:
             m1.metric("📋 Razem", 0); m2.metric("🔥 Pilne (-2+)", 0)
