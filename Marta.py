@@ -7,16 +7,17 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (CENTRACJA I PANEL BOCZNY)
+# 1. KONFIGURACJA I STYLIZACJA (WYDŁUŻENIE I CENTRACJA)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
 
 st.markdown("""
     <style>
-    .block-container { padding-top: 1rem !important; }
+    /* Wydłużenie kontenera głównego */
+    .block-container { padding-top: 1rem !important; padding-bottom: 5rem !important; }
     
-    /* LEWY PANEL BOCZNY */
+    /* LEWY PANEL BOCZNY - STYL I UKŁAD */
     [data-testid="stSidebar"] { 
         background-color: #1e293b !important; 
         border-right: 5px solid #eab308 !important; 
@@ -30,26 +31,19 @@ st.markdown("""
         height: 50px !important; margin-bottom: 10px !important;
     }
 
-    /* KAFELKI PODSUMOWANIA - WYŚRODKOWANIE LICZB */
+    /* KAFELKI PODSUMOWANIA - PEŁNA CENTRACJA LICZB */
     [data-testid="stMetric"] { 
         background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
         border-radius: 10px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         text-align: center !important;
     }
-    [data-testid="stMetricValue"] {
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        color: #eab308 !important;
-        font-weight: 900 !important;
-        font-size: 2.8rem !important;
+    [data-testid="stMetricValue"] > div { 
+        display: flex !important; justify-content: center !important; 
+        color: #eab308 !important; font-weight: 900 !important; font-size: 2.8rem !important; 
     }
-    [data-testid="stMetricLabel"] {
-        display: flex !important;
-        justify-content: center !important;
-        color: white !important;
-        font-weight: 600 !important;
-        font-size: 1.1rem !important;
+    [data-testid="stMetricLabel"] > div { 
+        display: flex !important; justify-content: center !important; 
+        color: white !important; font-weight: 600 !important; font-size: 1.1rem !important; 
     }
 
     /* ZAKŁADKI (TABS) */
@@ -62,6 +56,12 @@ st.markdown("""
     button[data-baseweb="tab"][aria-selected="true"] {
         color: white !important; background-color: #1e293b !important; 
         border-bottom: 4px solid #eab308 !important; 
+    }
+
+    /* OBNIŻENIE INFO O ZALOGOWANYM */
+    .sidebar-footer {
+        position: fixed; bottom: 20px; width: 250px; text-align: center;
+        color: #94a3b8; font-size: 0.85rem;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -117,7 +117,7 @@ else:
 def dodaj_zadanie():
     with st.form("new_task"):
         tresc = st.text_area("Treść zadania:")
-        osoba = st.selectbox("Osoba:", list(uzytkownicy.keys()))
+        osoba = st.selectbox("Osoba odpowiedzialna:", list(uzytkownicy.keys()))
         termin = st.date_input("Termin:", datetime.now())
         if st.form_submit_button("ZAPISZ DO ARKUSZA"):
             try:
@@ -128,26 +128,24 @@ def dodaj_zadanie():
             except: st.error("Błąd zapisu")
 
 # ==========================================================
-# 4. PANEL BOCZNY (PRZYWRÓCONE FUNKCJE I OBNIŻONY NAPIS)
+# 4. PANEL BOCZNY (PRZYWRÓCONE I OBNIŻONE)
 # ==========================================================
 with st.sidebar:
     st.markdown(f"<h2 style='text-align:center;'>UZDROWISKO<br><span style='color:#eab308'>CIECHOCINEK</span></h2>", unsafe_allow_html=True)
     st.divider()
     
-    # Przywrócone przyciski
     if czy_admin:
-        if st.button("➕ DODAJ ZADANIE", use_container_width=True): dodaj_zadanie()
+        if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): dodaj_zadanie()
     
     if st.button("🔄 ODŚWIEŻ DANE", use_container_width=True): 
         st.cache_data.clear()
         st.rerun()
     
-    # Obniżony napis o zalogowanym użytkowniku
-    st.markdown("<br>" * 15, unsafe_allow_html=True)
-    st.markdown(f"<div style='text-align:center; color:#94a3b8; font-size:0.9rem;'>Zalogowany: <b>{zalogowany}</b></div>", unsafe_allow_html=True)
+    # Obniżona informacja o użytkowniku
+    st.markdown(f'<div class="sidebar-footer">Zalogowany: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 5. WIDOK GŁÓWNY (ZAKŁADKI + CZAT)
+# 5. WIDOK GŁÓWNY (POWIĘKSZONY ARKUSZ)
 # ==========================================================
 kat_list = ["Zadania bieżące", "Zadania zrealizowane"]
 if zalogowany == "Andrzej": kat_list.append("Terminy Sławka")
@@ -161,7 +159,7 @@ for i, kat in enumerate(kat_list[:-1]):
         if not df.empty:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
             
-            # WYŚRODKOWANE KAFELKI PODSUMOWANIA
+            # KAFELKI PODSUMOWANIA (CENTROWANE)
             m1, m2, m3 = st.columns(3)
             m1.metric("📋 Razem zadań", len(df))
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
@@ -169,8 +167,9 @@ for i, kat in enumerate(kat_list[:-1]):
             
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
             
+            # POWIĘKSZONA WYSOKOŚĆ (800), aby uniknąć przesuwania
             edytowane = st.data_editor(
-                df, use_container_width=True, hide_index=True, height=450,
+                df, use_container_width=True, hide_index=True, height=800,
                 disabled=not czy_admin, key=f"ed_{kat}",
                 column_config={"DNI_N": None, "S": st.column_config.TextColumn(" ", width="small")}
             )
