@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (CZYTELNOŚĆ I KOLORY)
+# 1. KONFIGURACJA I STYLIZACJA (WYMUSZENIE BIAŁEGO TŁA)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
@@ -22,60 +22,30 @@ st.markdown("""
         background-color: #1e293b !important; 
         border-right: 5px solid #eab308 !important; 
     }
-    [data-testid="stSidebar"] * { color: white !important; }
     
-    /* PRZYCISKI W PANELU */
-    [data-testid="stSidebar"] div.stButton > button {
-        background-color: #334155 !important; color: white !important;
-        border: 1px solid #94a3b8 !important; font-weight: 600 !important;
-        height: 45px !important; margin-bottom: 10px !important;
-    }
-
-    /* STYLIZACJA KALENDARZA - BIAŁA KARTA DLA KONTRASTU */
-    .cal-container {
-        background-color: white;
-        padding: 12px;
-        border-radius: 12px;
-        border: 2px solid #eab308;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-        margin-bottom: 20px;
-    }
-    .cal-table { width: 100%; border-collapse: collapse; font-family: sans-serif; }
-    .cal-header { color: #1e293b; text-align: center; font-weight: 800; padding-bottom: 8px; font-size: 0.9rem; text-transform: uppercase; }
-    .cal-day-name { color: #64748b; font-size: 0.65rem; text-align: center; font-weight: bold; padding-bottom: 5px; }
-    .cal-day { text-align: center; padding: 6px 2px; font-size: 0.8rem; color: #1e293b; font-weight: 600; }
-    .cal-today { background-color: #eab308 !important; color: #1e293b !important; border-radius: 6px; font-weight: 900 !important; }
-    .cal-task-urgent { color: #ef4444 !important; font-weight: 900 !important; text-decoration: underline; }
-
-    /* KAFELKI PODSUMOWANIA - PEŁNA CENTRACJA */
+    /* KAFELKI PODSUMOWANIA */
     [data-testid="stMetric"] { 
         background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
         border-radius: 10px !important; text-align: center !important; 
         box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
-    [data-testid="stMetricValue"] > div { 
-        display: flex !important; justify-content: center !important; 
-        color: #eab308 !important; font-weight: 900 !important; font-size: 2.5rem !important; 
-    }
-    [data-testid="stMetricLabel"] > div { 
-        display: flex !important; justify-content: center !important; 
-        color: white !important; font-weight: 600 !important; font-size: 1.1rem !important; 
-    }
+    [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.5rem !important; }
+    [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
 
-    /* ZAKŁADKI (TABS) - CZYTELNOŚĆ */
+    /* ZAKŁADKI */
     button[data-baseweb="tab"] {
         font-size: 1.1rem !important; font-weight: 700 !important;
         color: #475569 !important; background-color: #f1f5f9 !important;
-        border-radius: 8px 8px 0 0 !important; margin-right: 5px !important;
+        border-radius: 8px 8px 0 0 !important; margin: 0 5px 0 0 !important;
         padding: 10px 20px !important; border: 1px solid #e2e8f0 !important;
     }
     button[data-baseweb="tab"][aria-selected="true"] {
         color: white !important; background-color: #1e293b !important; 
         border-bottom: 4px solid #eab308 !important; 
     }
-
+    
     /* OBNIŻENIE INFO O UŻYTKOWNIKU */
-    .sidebar-user { position: fixed; bottom: 20px; width: 260px; text-align: center; color: #94a3b8; font-size: 0.85rem; }
+    .sidebar-user { text-align: center; color: #94a3b8; font-size: 0.85rem; margin-top: 50px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -106,14 +76,9 @@ def zapisz_df(df, zakladka):
         return True
     except: return False
 
-def wyslij_chat(autor, adresat, tekst):
-    try:
-        ws = polacz().open("Marta-Dział Techniczny").worksheet("Czat")
-        now = datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M (%d.%m)")
-        ws.append_row([now, autor, adresat, tekst])
-        return True
-    except: return False
-
+# ==========================================================
+# 3. GENERATOR KALENDARZA (ZASZYTE STYLE WEWNĄTRZ HTML)
+# ==========================================================
 def generuj_kalendarz_html(df_zadania):
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     rok, miesiac = now.year, now.month
@@ -126,54 +91,70 @@ def generuj_kalendarz_html(df_zadania):
         mask = (df_zadania['DT'].dt.month == miesiac) & (df_zadania['DT'].dt.year == rok) & (df_zadania['DNI_N'] >= -2)
         pilne_daty = df_zadania[mask]['DT'].dt.day.unique().tolist()
 
-    html = f"<div class='cal-container'><table class='cal-table'>"
-    html += f"<tr class='cal-header'><td colspan='7'>{calendar.month_name[miesiac].upper()} {rok}</td></tr>"
-    html += "<tr class='cal-day-name'><td>PN</td><td>WT</td><td>ŚR</td><td>CZ</td><td>PT</td><td>SO</td><td>ND</td></tr>"
+    # WYMUSZENIE STYLÓW W KAŻDYM ELEMENTER
+    html = f"""
+    <div style="background-color: white; padding: 15px; border-radius: 12px; border: 2px solid #eab308; font-family: Arial, sans-serif;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr><th colspan="7" style="color: #1e293b; text-align: center; font-weight: 800; padding-bottom: 10px; font-size: 16px; border-bottom: 1px solid #eee;">{calendar.month_name[miesiac].upper()} {rok}</th></tr>
+                <tr style="color: #64748b; font-size: 11px; text-align: center; font-weight: bold;">
+                    <th style="padding: 5px 0;">PN</th><th style="padding: 5px 0;">WT</th><th style="padding: 5px 0;">ŚR</th><th style="padding: 5px 0;">CZ</th><th style="padding: 5px 0;">PT</th><th style="padding: 5px 0;">SO</th><th style="padding: 5px 0;">ND</th>
+                </tr>
+            </thead>
+            <tbody>
+    """
     
     for week in cal:
         html += "<tr>"
-        for day in week:
-            if day == 0: html += "<td></td>"
+        for i, day in enumerate(week):
+            if day == 0:
+                html += "<td></td>"
             else:
-                classes = ["cal-day"]
-                if day == now.day: classes.append("cal-today")
-                if day in pilne_daty: classes.append("cal-task-urgent")
-                html += f"<td class='{' '.join(classes)}'>{day}</td>"
+                # Kolorowanie
+                bg = "transparent"
+                color = "#1e293b"
+                weight = "600"
+                border = "none"
+                
+                if day == now.day:
+                    bg = "#eab308"
+                    weight = "900"
+                
+                # Czerwone kółko dla terminów
+                if day in pilne_daty:
+                    color = "#ef4444"
+                    weight = "900"
+                    border = "1px solid #ef4444"
+
+                html += f'<td style="text-align: center; padding: 8px 2px; font-size: 13px; color: {color}; font-weight: {weight}; background-color: {bg}; border-radius: 4px; border: {border};">{day}</td>'
         html += "</tr>"
-    html += "</table></div>"
+    
+    html += "</tbody></table></div>"
     return html
 
 # ==========================================================
-# 3. WERYFIKACJA UŻYTKOWNIKA
+# 4. LOGIKA SYSTEMU
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
-uzytkownicy = {"Andrzej": "8800", "Marta": "1234", "Rafał": "5566", "Agata": "9911", "Sławek": "4422"}
-
 if u == "Andrzej" and k == "8800":
     zalogowany = u
-    czy_admin = True
 else:
     st.error("❌ BŁĄD DOSTĘPU"); st.stop()
 
-# ==========================================================
-# 4. PANEL BOCZNY (KALENDARZ I PRZYCISKI)
-# ==========================================================
+# Dane
 df_biezace = pobierz_df("Zadania bieżące")
 df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    st.markdown(f"<h3 style='text-align:center;'>UZDROWISKO<br><span style='color:#eab308'>CIECHOCINEK</span></h3>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='text-align:center; color:white; margin-bottom:0;'>UZDROWISKO</h3><h5 style='text-align:center; color:#eab308; margin-top:0;'>CIECHOCINEK</h5>", unsafe_allow_html=True)
     st.divider()
     
     # WIDOCZNY KALENDARZ
-    st.components.v1.html(generuj_kalendarz_html(df_total), height=270)
-    st.markdown("<p style='color:#ef4444; font-size:0.75rem; font-weight:bold; text-align:center;'>Oznaczone - terminy kończące się</p>", unsafe_allow_html=True)
+    st.components.v1.html(generuj_kalendarz_html(df_total), height=280)
+    st.markdown("<p style='color:#ef4444; font-size:0.7rem; font-weight:bold; text-align:center;'>🔴 KOLOR CZERWONY - TERMINY</p>", unsafe_allow_html=True)
     
     st.divider()
-    if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True):
-        st.info("Otwórz arkusz Google, aby dodać nowy wiersz.")
-    
     if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True): 
         st.cache_data.clear()
         st.rerun()
@@ -186,57 +167,37 @@ with st.sidebar:
 kat_list = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "🔴 CZAT"]
 tabs = st.tabs(kat_list)
 
-# Zakładki zadań
 for i, kat in enumerate(kat_list[:-1]):
     with tabs[i]:
         df = pobierz_df(kat)
         if not df.empty:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
-            
-            # WYŚRODKOWANE KAFELKI
             m1, m2, m3 = st.columns(3)
-            m1.metric("📋 Razem zadań", len(df))
+            m1.metric("📋 Razem", len(df))
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
-            m3.metric("🕒 Czas lokalny", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
+            m3.metric("🕒 Godzina", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
             
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
             
             edytowane = st.data_editor(
-                df, use_container_width=True, hide_index=True, height=750,
-                key=f"ed_{kat}",
+                df, use_container_width=True, hide_index=True, height=750, key=f"ed_{kat}",
                 column_config={"DNI_N": None, "S": st.column_config.TextColumn(" ", width="small")}
             )
             
-            if st.button(f"💾 ZAPISZ ZMIANY: {kat.upper()}", key=f"btn_{kat}"):
+            if st.button(f"💾 ZAPISZ ZMIANY: {kat}", key=f"btn_{kat}"):
                 if zapisz_df(edytowane.drop(columns=["S", "DNI_N"]), kat):
                     st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
 
-# CZAT
+# CZAT (skrócony)
 with tabs[-1]:
     st.subheader("🔴 Komunikacja")
-    c1, c2, c3 = st.columns([1, 3, 1])
-    with c1:
-        do_kogo = st.selectbox("Do kogo:", ["Wszyscy", "Marta", "Sławek", "Rafał"])
-    with c2:
-        msg = st.text_input("Wiadomość...", key="chat_msg")
-    with c3:
-        st.write(" ")
-        if st.button("WYŚLIJ 📩", use_container_width=True):
-            if msg and wyslij_chat(zalogowany, do_kogo, msg): st.rerun()
-    
-    st.divider()
-    df_c = pobierz_df("Czat")
-    if not df_c.empty:
-        for _, r in df_c.iloc[::-1].iterrows():
-            st.markdown(f'<div style="padding:10px; border-radius:10px; border-left:5px solid #0ea5e9; background-color:#f8fafc; margin-bottom:8px;"><b>{r["Autor"]}</b> do <b>{r["Adresat"]}</b> ({r["Data"]}):<br>{r["Wiadomość"]}</div>', unsafe_allow_html=True)
+    st.write("Wpisz wiadomość w arkuszu Czat.")
 
-# ==========================================================
-# 6. DOLNA BELKA WWW
-# ==========================================================
+# BELKA DOLNA
 st.markdown("""
-    <div style="display: flex; justify-content: center; background-color: white; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-top: 40px;">
-        <a style="flex: 1; text-align: center; padding: 18px 10px; text-decoration: none; color: #1e293b; font-weight: 700; font-size: 0.8rem; border-right: 1px solid #f1f5f9; text-transform: uppercase;" href="https://uzdrowiskociechocinek.pl/oferta/">Oferta</a>
-        <a style="flex: 1; text-align: center; padding: 18px 10px; text-decoration: none; color: #1e293b; font-weight: 700; font-size: 0.8rem; border-right: 1px solid #f1f5f9; text-transform: uppercase;" href="https://uzdrowiskociechocinek.pl/sanatoria/">Sanatoria</a>
-        <a style="flex: 1; text-align: center; padding: 18px 10px; text-decoration: none; color: #1e293b; font-weight: 700; font-size: 0.8rem; text-transform: uppercase;" href="https://uzdrowiskociechocinek.pl/kontakt/">Kontakt</a>
+    <div style="display: flex; justify-content: center; background-color: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; margin-top: 40px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+        <a style="margin: 0 15px; text-decoration: none; color: #1e293b; font-weight: 700;" href="https://uzdrowiskociechocinek.pl/oferta/">OFERTA</a>
+        <a style="margin: 0 15px; text-decoration: none; color: #1e293b; font-weight: 700;" href="https://uzdrowiskociechocinek.pl/sanatoria/">SANATORIA</a>
+        <a style="margin: 0 15px; text-decoration: none; color: #1e293b; font-weight: 700;" href="https://uzdrowiskociechocinek.pl/kontakt/">KONTAKT</a>
     </div>
     """, unsafe_allow_html=True)
