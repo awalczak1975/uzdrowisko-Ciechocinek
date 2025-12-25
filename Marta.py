@@ -132,24 +132,22 @@ if not df.empty:
         df['tmp'] = pd.to_datetime(df[kol_data], dayfirst=True, errors='coerce')
         df = df.sort_values(by='tmp', ascending=True).drop(columns=['tmp'])
 
-    # 2. Logika ikon (DNI_N)
+    # 2. Logika ikon - TYLKO GRAFIKA
     if 'DNI' in df.columns:
-        # Konwersja na liczby, brakujące dane oznaczamy jako -999
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
         
-        def przypisz_ikone(dni):
+        def przypisz_grafike(dni):
             if dni == -999: return "⚪"
-            if dni >= -2: return "🔴"
-            return "🟢"
+            if dni >= -2: return "🚨" # Sama ikona alarmu dla -2 i spóźnień
+            return "✅" # Sama ikona OK dla reszty
         
-        # Wstawiamy kolumnę z samą ikoną na początek
-        df.insert(0, "!", df['DNI_N'].apply(przypisz_ikone))
+        # Tworzymy kolumnę z samą grafiką
+        df.insert(0, "S", df['DNI_N'].apply(przypisz_grafike))
 
     # 3. Metryki
     m1, m2, m3 = st.columns(3)
     m1.metric("📋 Razem", len(df))
     if 'DNI_N' in df.columns:
-        # Zgodnie z Pana instrukcją: pilne to -2 oraz wartości dodatnie (spóźnienia)
         pilne_count = len(df[df['DNI_N'] >= -2])
         m2.metric("🔥 Pilne/Spóźnione", pilne_count)
     else: m2.metric("Status", "Aktywne")
@@ -158,7 +156,7 @@ if not df.empty:
     godzina_pl = datetime.now(tz_warszawa).strftime("%H:%M")
     m3.metric("🕒 Godzina", godzina_pl)
 
-    # 4. Wyświetlanie tabeli
+    # 4. Wyświetlanie tabeli - Minimalistyczna pierwsza kolumna
     st.data_editor(
         df, 
         use_container_width=True, 
@@ -166,10 +164,10 @@ if not df.empty:
         height=600, 
         disabled=not czy_admin,
         column_config={
-            "DNI_N": None, # Ukrywamy kolumnę pomocniczą
-            "!": st.column_config.TextColumn("!", width="small"),
-            "DNI": st.column_config.TextColumn("DNI", width="small"),
-            "TREŚĆ": st.column_config.TextColumn("TREŚĆ", width="large")
+            "DNI_N": None, 
+            "S": st.column_config.TextColumn(" ", width="small"), # Kolumna z ikoną bez nagłówka tekstowego
+            "TREŚĆ": st.column_config.TextColumn("TREŚĆ", width="large"),
+            "DNI": st.column_config.TextColumn("DNI", width="small")
         }
     )
 else:
