@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA ZAZNACZANIA DAT)
+# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA ZNIKANIA ARKUSZA)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -19,46 +19,48 @@ st.markdown("""
     <style>
     .block-container { padding-top: 0.5rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
+    
     .logo-container { text-align: center; margin-top: -65px !important; margin-bottom: 25px !important; }
     .logo-container img { width: 200px; }
     
+    /* ETYKIETA ZALOGOWANEGO - STABILNA */
     .user-info-footer {
         background-color: #eab308 !important;
         color: #1e293b !important;
-        padding: 12px;
+        padding: 10px;
         border-radius: 8px;
         font-weight: 900;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         text-align: center;
-        margin-top: 25px;
+        margin-top: 20px;
         border: 2px solid white;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
 
-    /* KOMPAKTOWY KALENDARZ */
+    /* KALENDARZ - DOPASOWANIE */
     .cal-container { 
         background: white; 
         padding: 5px; 
         border-radius: 8px; 
         border: 2px solid #eab308;
-        max-width: 260px;
-        margin: 0 auto;
+        width: 100%;
     }
     .cal-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 10px; color: #1e293b; }
-    .cal-table th { color: #1e293b; text-align: center; font-weight: 800; border-bottom: 1px solid #eee; padding-bottom: 2px; }
-    .cal-table td { text-align: center; padding: 2px; font-weight: 700; border-radius: 3px; width: 14.28%; }
+    .cal-table td { text-align: center; padding: 1px; font-weight: 700; border-radius: 3px; }
+    .day-today { background-color: #eab308 !important; }
+    .day-task { color: #ef4444 !important; border: 1px solid #ef4444 !important; }
+
+    /* METRYKI */
+    [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 1.8rem !important; }
+    [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
+    [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; padding: 5px 10px !important; }
     
-    /* STYLE DNI */
-    .day-today { background-color: #eab308 !important; color: #1e293b !important; }
-    .day-task { color: #ef4444 !important; border: 1px solid #ef4444 !important; background-color: #fff5f5; }
-    
-    .term-box { background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.72rem; }
-    .sidebar-header { color: #eab308; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }
+    .term-box { background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.7rem; }
+    .sidebar-header { color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGOWANIE I DANE
+# 2. DANE I LOGOWANIE
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -69,59 +71,42 @@ def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
     return gspread.authorize(creds)
 
-@st.cache_data(ttl=20)
-def pobierz_df(zakladka):
+@st.cache_data(ttl=15)
+def pobierz_arkusz(nazwa):
     try:
-        ws = polacz().open("Marta-Dział Techniczny").worksheet(zakladka)
+        ws = polacz().open("Marta-Dział Techniczny").worksheet(nazwa)
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
-        df = pd.DataFrame(dane[1:], columns=dane[0])
-        return df[df.iloc[:, 0].astype(str).str.strip() != ""].copy()
+        return pd.DataFrame(dane[1:], columns=dane[0])
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. FUNKCJA KALENDARZA (POPRAWIONE WYKRYWANIE DAT)
+# 3. SIDEBAR (LOGIKA I KALENDARZ)
 # ==========================================================
-def generuj_kalendarz_html(df_zadania, user):
+df_biez = pobierz_arkusz("Zadania bieżące")
+df_chat = pobierz_arkusz("CZAT")
+has_new = not df_chat[(df_chat['ODBIORCA'] == zalogowany) & (df_chat['STATUS'] == "NIEPRZECZYTANE")].empty if not df_chat.empty else False
+
+def rysuj_kalendarz(df, user):
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_terminami = set()
-    
-    if not df_zadania.empty and 'DEADLINE' in df_zadania.columns:
-        # Filtracja zadań dla użytkownika
-        df_f = df_zadania if user == "Andrzej" else df_zadania[df_zadania['OSOBA'].str.contains(user, na=False)]
-        
-        # Konwersja kolumny DEADLINE na obiekty daty dla porównania
+    if not df.empty:
+        df_f = df if user == "Andrzej" else df[df['OSOBA'].str.contains(user, na=False)]
         deadlines = pd.to_datetime(df_f['DEADLINE'], errors='coerce', dayfirst=True)
-        
-        # Wybieramy tylko dni z bieżącego miesiąca i roku
-        mask = (deadlines.dt.month == now.month) & (deadlines.dt.year == now.year)
-        dni_z_terminami = set(deadlines[mask].dt.day.dropna().astype(int).tolist())
+        dni_z_terminami = set(deadlines[(deadlines.dt.month == now.month) & (deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
-    html = f'<div class="cal-container">'
-    html += f'<table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
-    
+    html = f'<div class="cal-container"><table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
     for week in cal:
         html += '<tr>'
         for day in week:
-            if day == 0:
-                html += '<td></td>'
+            if day == 0: html += '<td></td>'
             else:
-                classes = []
-                if day == now.day: classes.append("day-today")
-                if day in dni_z_terminami: classes.append("day-task")
-                html += f'<td class="{" ".join(classes)}">{day}</td>'
+                cls = "day-today" if day == now.day else ""
+                if day in dni_z_terminami: cls += " day-task"
+                html += f'<td class="{cls}">{day}</td>'
         html += '</tr>'
-    
-    html += '</tbody></table></div>'
-    return html
-
-# ==========================================================
-# 4. SIDEBAR
-# ==========================================================
-df_biez = pobierz_df("Zadania bieżące")
-df_chat = pobierz_df("CZAT")
-has_new = not df_chat[(df_chat['ODBIORCA'] == zalogowany) & (df_chat['STATUS'] == "NIEPRZECZYTANE")].empty if not df_chat.empty else False
+    return html + '</tbody></table></div>'
 
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><img src="{LOGO_URL}"></div>', unsafe_allow_html=True)
@@ -130,20 +115,44 @@ with st.sidebar:
     with c1: st.button("➕ DODAJ", use_container_width=True)
     with c2: 
         if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
-    st.markdown('<div style="border-top:1px solid #334155; margin:10px 0;"></div>', unsafe_allow_html=True)
-    
-    st.markdown('<div class="sidebar-header" style="margin-top:-5px;">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
-    st.markdown(generuj_kalendarz_html(df_biez, zalogowany), unsafe_allow_html=True)
-    
-    st.markdown('<div class="sidebar-header" style="margin-top:15px;">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-header">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
+    st.markdown(rysuj_kalendarz(df_biez, zalogowany), unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_biez.empty:
         df_side = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
         for _, r in df_side.head(5).iterrows():
             dni = pd.to_numeric(r.get('DNI', 0), errors='coerce')
-            st.markdown(f'<div class="term-box">{"🔥" if dni >= -2 else "🟢"} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:30]}...</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="term-box">{"🔥" if dni >= -2 else "🟢"} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
     
     u_name = "ANDRZEJ WALCZAK" if zalogowany == "Andrzej" else zalogowany.upper()
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {u_name}</div>', unsafe_allow_html=True)
 
-# Widok główny pozostaje bez zmian (kod z poprzednich wersji)
-# ... (Zadania bieżące, zrealizowane, czat)
+# ==========================================================
+# 4. WIDOK GŁÓWNY (ARKUSZ ZADANIA)
+# ==========================================================
+tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", f"💬 CZAT {'🔴' if has_new else ''}"])
+now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
+
+for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
+    with tabs[i]:
+        df_raw = pobierz_arkusz(nazwa)
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        
+        if not df_raw.empty:
+            df_raw['DNI_NUM'] = pd.to_numeric(df_raw['DNI'], errors='coerce').fillna(-999)
+            col_m1.metric("📋 Razem", len(df_raw))
+            col_m2.metric("🔥 Pilne (-2+)", len(df_raw[df_raw['DNI_NUM'] >= -2]))
+            
+            # Dodanie emotek bezpośrednio do treści
+            df_raw['TREŚĆ ZADANIA'] = df_raw.apply(lambda r: f"{('🔥 ' if r['DNI_NUM'] >= -2 else '🟢 ')}{r['TREŚĆ ZADANIA']}", axis=1)
+            
+            # WYŚWIETLANIE ARKUSZA - KLUCZOWA POPRAWKA
+            st.data_editor(df_raw.drop(columns=['DNI_NUM']), use_container_width=True, hide_index=True, height=800)
+        else:
+            col_m1.metric("📋 Razem", 0)
+            col_m2.metric("🔥 Pilne (-2+)", 0)
+            st.info("Brak aktywnych zadań.")
+        
+        col_m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
+
+st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now_pl.strftime("%d.%m.%Y | %H:%M")}</span></div>', unsafe_allow_html=True)
