@@ -122,12 +122,12 @@ df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
     # LOGO GRAFICZNE (HTML)
-    st.markdown("""
+    st.markdown(\"\"\"
         <div style="text-align:center; padding-bottom: 5px;">
             <div style="color:#eab308; font-size: 22px; font-weight: 900; line-height: 0.8;">UZDROWISKO</div>
             <div style="color:#0ea5e9; font-size: 14px; font-weight: 700; letter-spacing: 2px;">CIECHOCINEK</div>
         </div>
-    """, unsafe_allow_html=True)
+    \"\"\", unsafe_allow_html=True)
     
     st.divider()
     
@@ -162,6 +162,7 @@ for i, kat in enumerate(kat_list[:-1]):
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
             m3.metric("🕒 Godzina", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
             
+            # Ikony statusu
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
             
             st.data_editor(df, use_container_width=True, hide_index=True, height=700, key=f"ed_{kat}")
