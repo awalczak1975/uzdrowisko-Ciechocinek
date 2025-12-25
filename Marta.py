@@ -13,30 +13,31 @@ import pytz
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
 
-# Poprawiony link do logo na GitHub (Raw)
+# Poprawiony, zakodowany link do logo na GitHub
 LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20%281%29.png"
-# Link powrotny (URL Twojej aplikacji)
-APP_URL = "https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u=Andrzej&k=8800"
 
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem !important; }
-    [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
-    /* STYLIZACJA LOGO - BEZPOŚREDNI LINK HTML */
+    /* PANEL BOCZNY */
+    [data-testid="stSidebar"] { 
+        background-color: #1e293b !important; 
+        border-right: 5px solid #eab308 !important; 
+    }
+    
+    /* KLIKALNE LOGO - STYLIZACJA */
     .logo-container {
         text-align: center;
         margin-top: -30px !important;
-        margin-bottom: 20px !important;
-        cursor: pointer;
+        margin-bottom: 10px !important;
     }
     .logo-container img {
         width: 200px;
+        cursor: pointer;
         transition: 0.3s;
     }
-    .logo-container img:hover {
-        transform: scale(1.02);
-    }
+    .logo-container img:hover { transform: scale(1.03); }
 
     /* PRZYCISKI W PANELU */
     [data-testid="stSidebar"] div.stButton > button {
@@ -45,7 +46,7 @@ st.markdown("""
         height: 46px !important; margin-bottom: 5px !important;
     }
 
-    /* ZAKŁADKI (TABS) */
+    /* ZAKŁADKI (TABS) - POPRAWIONA WIDOCZNOŚĆ */
     button[data-baseweb="tab"] {
         font-size: 1.1rem !important; font-weight: 700 !important;
         color: #1e293b !important; background-color: #e2e8f0 !important;
@@ -57,7 +58,15 @@ st.markdown("""
         border-bottom: 4px solid #eab308 !important; 
     }
 
-    /* STOPKA */
+    /* METRYKI PODSUMOWANIA */
+    [data-testid="stMetric"] { 
+        background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
+        border-radius: 10px !important; text-align: center !important; 
+    }
+    [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; }
+    [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; }
+
+    /* STOPKA NA DOLE */
     .sidebar-footer { position: fixed; bottom: 10px; width: 240px; text-align: center; color: #94a3b8; font-size: 0.75rem; }
     </style>
     """, unsafe_allow_html=True)
@@ -124,11 +133,12 @@ df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    # --- NAPRAWIONE LOGO JAKO LINK ---
+    # --- LOGO JAKO LINK HOME (NAPRAWIONE) ---
+    # Kliknięcie w obrazek przeładowuje aplikację do stanu domyślnego
     st.markdown(f"""
         <div class="logo-container">
-            <a href="{APP_URL}" target="_self">
-                <img src="{LOGO_URL}">
+            <a href="?u={u}&k={k}" target="_self">
+                <img src="{LOGO_URL}" alt="Uzdrowisko Ciechocinek">
             </a>
         </div>
     """, unsafe_allow_html=True)
