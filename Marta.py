@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (PODNIESIONY NAGŁÓWEK)
+# 1. KONFIGURACJA I STYLIZACJA (PODNIESIONE NAGŁÓWKI)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -47,16 +47,20 @@ st.markdown("""
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 25px !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
     
-    /* MODUŁ NADCHODZĄCYCH (PODNIESIONY O 3MM) */
+    /* TERMINY I NAGŁÓWKI (PODNIESIONE O KOLEJNE 3MM) */
     .term-box { background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.72rem; }
+    
     .sidebar-header { 
         color: #eab308; 
         font-size: 0.8rem; 
         font-weight: 800; 
         text-transform: uppercase; 
         margin-bottom: 5px; 
-        margin-top: -3px !important; /* Zredukowano margines górny o ok. 3mm */
     }
+    
+    /* Indywidualne podniesienie sekcji */
+    .header-terminy { margin-top: -8px !important; } /* Podniesienie sekcji kalendarza */
+    .header-nadchodzace { margin-top: -6px !important; } /* Dodatkowe podniesienie sekcji ogników */
     
     /* CZAT */
     .chat-bubble-container { display: flex; flex-direction: column; gap: 8px; padding: 15px; background: #f1f5f9; border-radius: 12px; margin-bottom: 20px; border: 1px solid #cbd5e1; }
@@ -128,11 +132,13 @@ with st.sidebar:
     with c2: 
         if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
     st.markdown('<div style="border-top:1px solid #334155; margin:10px 0;"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-header">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
-    st.components.v1.html(generuj_kalendarz_html(df_biez, zalogowany), height=170) # Nieznacznie zmniejszono wysokość (z 175)
     
-    # NAGŁÓWEK PODNIESIONY O 3MM
-    st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
+    # PODNIESIONE TWOJE TERMINY
+    st.markdown('<div class="sidebar-header header-terminy">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
+    st.components.v1.html(generuj_kalendarz_html(df_biez, zalogowany), height=170)
+    
+    # PODNIESIONE NADCHODZĄCE TWOJE
+    st.markdown('<div class="sidebar-header header-nadchodzace">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_biez.empty:
         df_side = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
         for _, r in df_side.head(5).iterrows():
