@@ -8,12 +8,12 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (UKŁAD Z LOGO)
+# 1. KONFIGURACJA I STYLIZACJA (ZMNIEJSZONE ODSTĘPY)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
 
-# Ścieżka do Twojego logo na GitHub (Raw link)
+# Ścieżka do Twojego logo na GitHub
 LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20(1).png"
 
 st.markdown("""
@@ -26,20 +26,18 @@ st.markdown("""
         border-right: 5px solid #eab308 !important; 
     }
     
-    /* LOGO IMAGE STYLING */
-    .sidebar-logo {
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-        width: 80%;
-        margin-bottom: 10px;
+    /* STYLIZACJA LOGO - MINIMALNE MARGINESY */
+    .sidebar-logo-container {
+        text-align: center;
+        margin-top: -20px; /* Przesunięcie logo wyżej */
+        margin-bottom: -10px; /* Zmniejszenie odstępu pod logo */
     }
-    
-    /* PRZYCISKI */
+
+    /* PRZYCISKI W PANELU */
     [data-testid="stSidebar"] div.stButton > button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; font-weight: 600 !important;
-        height: 46px !important; margin-bottom: 8px !important;
+        height: 46px !important; margin-bottom: 5px !important;
     }
 
     /* AKTYWNA ZAKŁADKA */
@@ -49,15 +47,16 @@ st.markdown("""
         border-bottom: 4px solid #eab308 !important; 
     }
 
-    /* METRYKI */
+    /* METRYKI PODSUMOWANIA */
     [data-testid="stMetric"] { 
         background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
         border-radius: 10px !important; text-align: center !important; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; }
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; }
 
-    /* STOPKA */
+    /* STOPKA NA DOLE */
     .sidebar-footer { position: fixed; bottom: 10px; width: 240px; text-align: center; color: #94a3b8; font-size: 0.75rem; }
     </style>
     """, unsafe_allow_html=True)
@@ -129,23 +128,24 @@ df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    # --- WSTAWIENIE LOGO Z GITHUB ---
-    st.image(LOGO_URL, use_container_width=True)
+    # LOGO Z MNIEJSZYM ODSTĘPEM
+    st.markdown(f'<div class="sidebar-logo-container"><img src="{LOGO_URL}" width="180"></div>', unsafe_allow_html=True)
     
-    st.divider()
+    # Cienki separator zamiast grubego st.divider()
+    st.markdown('<div style="border-bottom: 1px solid #334155; margin: 10px 0;"></div>', unsafe_allow_html=True)
     
-    if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): st.info("Dodaj zadanie w Arkuszu Google.")
+    if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): st.info("Dodaj zadanie w Arkuszu.")
     if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True): st.cache_data.clear(); st.rerun()
     
     st.components.v1.html(generuj_kalendarz_html(df_total), height=195)
     
-    st.markdown("<p style='color:white; font-weight:bold; margin-bottom:5px;'>📅 Nadchodzące terminy:</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:white; font-weight:bold; margin-bottom:5px; font-size:0.9rem;'>📅 Nadchodzące terminy:</p>", unsafe_allow_html=True)
     df_total['DNI_N'] = pd.to_numeric(df_total['DNI'], errors='coerce').fillna(-999)
     nadchodzace = df_total[df_total['DNI_N'] >= -2].sort_values(by='DEADLINE').head(3)
     
     if not nadchodzace.empty:
         for _, r in nadchodzace.iterrows():
-            st.markdown(f"<div style='background-color:#334155; padding:8px; border-radius:8px; border-left:4px solid #ef4444; margin-bottom:6px;'><p style='color:white; font-size:0.85rem; margin:0;'><b>{r['DEADLINE']}</b>: {r['TREŚĆ ZADANIA']}</p></div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='background-color:#334155; padding:8px; border-radius:8px; border-left:4px solid #ef4444; margin-bottom:6px;'><p style='color:white; font-size:0.8rem; margin:0;'><b>{r['DEADLINE']}</b>: {r['TREŚĆ ZADANIA']}</p></div>", unsafe_allow_html=True)
 
     st.markdown(f'<div class="sidebar-footer">Zalogowany: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
 
