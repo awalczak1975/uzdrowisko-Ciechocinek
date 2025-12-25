@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (WYDŁUŻONY KALENDARZ)
+# 1. KONFIGURACJA I STYLIZACJA (WYDŁUŻONE POZYCJE +2MM)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -34,19 +34,18 @@ st.markdown("""
         border: 2px solid white;
     }
 
-    /* WYDŁUŻONY KALENDARZ (+3mm) */
     .cal-container { 
         background: white; 
         padding: 8px; 
         border-radius: 8px; 
         border: 2px solid #eab308; 
         width: 100%;
-        margin-bottom: 15px; /* Dodatkowy margines dolny */
+        margin-bottom: 15px;
     }
     .cal-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 10px; color: #1e293b; }
     .cal-table td { 
         text-align: center; 
-        padding: 4px 1px; /* Zwiększono padding pionowy dla efektu +3mm wysokości */
+        padding: 4px 1px; 
         font-weight: 700; 
         border-radius: 3px; 
     }
@@ -60,14 +59,16 @@ st.markdown("""
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 25px !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
     
+    /* POWIĘKSZONE POZYCJE POD KALENDARZEM (+2mm) */
     .term-box { 
         background: #334155; 
-        padding: 12px 10px; 
+        padding: 16px 10px; /* Zwiększono padding pionowy z 12px na 16px */
         border-radius: 6px; 
         border-left: 4px solid #ef4444; 
-        margin-bottom: 12px; 
+        margin-bottom: 14px; /* Zwiększono odstęp dolny */
         color: white; 
         font-size: 0.75rem; 
+        line-height: 1.4;
     }
     .sidebar-header { color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 10px; }
     </style>
