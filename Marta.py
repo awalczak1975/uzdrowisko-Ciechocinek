@@ -1,3 +1,20 @@
+st.title("Test połączenia z Google Sheets")
+
+try:
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+    )
+    client = gspread.authorize(creds)
+    arkusze = [s.title for s in client.openall()]
+    st.success("✅ Połączono z Google Sheets!")
+    st.write("Dostępne arkusze:", arkusze)
+except Exception as e:
+    st.error(f"❌ Błąd połączenia: {e}")
+
 import streamlit as st
 import gspread
 import pandas as pd
@@ -151,6 +168,7 @@ with st.sidebar:
     if st.button("➕ DODAJ ZADANIE"):
         dodaj_zadanie()
     st.markdown(f"Zalogowany: **{user}**")
+
 
 
 
