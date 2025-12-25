@@ -43,7 +43,7 @@ if u_param in USERS and USERS[u_param] == k_param: zalogowany = u_param
 else: st.error("BŁĄD AUTORYZACJI"); st.stop()
 
 # ==========================================================
-# 3. FUNKCJE TECHNICZNE (STABILNY ODCZYT)
+# 3. FUNKCJE TECHNICZNE
 # ==========================================================
 def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
@@ -100,7 +100,6 @@ with st.sidebar:
             st.cache_data.clear()
             st.rerun()
     st.markdown('<div style="border-top: 1px solid #334155; margin: 8px 0;"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-header">📅 Twoje Terminy</div>', unsafe_allow_html=True)
     st.components.v1.html(generuj_kalendarz_html(df_biez, zalogowany), height=175)
     st.markdown('<div class="sidebar-header">🕒 Nadchodzące Twoje</div>', unsafe_allow_html=True)
     if not df_biez.empty:
@@ -108,12 +107,13 @@ with st.sidebar:
         for _, r in df_side.head(5).iterrows():
             try:
                 dni_val = pd.to_numeric(r.get('DNI', 0), errors='coerce')
+                # SPÓJNA LOGIKA: Pilne to -2 i więcej
                 status_icon = "🔴" if dni_val >= -2 else "🟢"
             except: status_icon = "⚪"
             st.markdown(f'<div class="term-box">{status_icon} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:32]}...</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 5. WIDOK GŁÓWNY (Z NAPRAWIONYMI EMOTKAMI)
+# 5. WIDOK GŁÓWNY (SPÓJNOŚĆ EMOTEK Z NAGŁÓWKIEM)
 # ==========================================================
 chat_label = "💬 CZAT 🔴" if has_new else "💬 CZAT"
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", chat_label])
@@ -126,31 +126,32 @@ for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy S
         m1.metric("📋 Razem", len(df))
         
         if not df.empty and 'DNI' in df.columns:
-            # KLUCZOWA POPRAWKA: Dodawanie emotek przed wyświetleniem tabeli
-            def apply_emoji(row):
-                try:
-                    val = pd.to_numeric(row['DNI'], errors='coerce')
-                    icon = "🔴 " if val >= -2 else "🟢 "
-                    return f"{icon}{row['TREŚĆ ZADANIA']}"
-                except:
-                    return row['TREŚĆ ZADANIA']
+            # Konwersja na liczby dla precyzyjnych obliczeń
+            df['DNI_NUM'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
             
-            # Tworzymy kopię do wyświetlania z emotkami
+            # Licznik Pilne zgodny z grafiką (-2+)
+            pilne_count = len(df[df['DNI_NUM'] >= -2])
+            m2.metric("🔥 Pilne (-2+)", pilne_count)
+            
+            # Przypisanie emotek identyczne z logiką licznika
+            def apply_consistent_emoji(row):
+                icon = "🔴 " if row['DNI_NUM'] >= -2 else "🟢 "
+                return f"{icon}{row['TREŚĆ ZADANIA']}"
+            
             df_display = df.copy()
-            df_display['TREŚĆ ZADANIA'] = df_display.apply(apply_emoji, axis=1)
-            
-            df_n = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
-            m2.metric("🔥 Pilne (-2+)", len(df[df_n >= -2]))
+            df_display['TREŚĆ ZADANIA'] = df_display.apply(apply_consistent_emoji, axis=1)
+            # Usuwamy kolumnę pomocniczą z widoku
+            df_final = df_display.drop(columns=['DNI_NUM'])
         else:
             m2.metric("🔥 Pilne (-2+)", 0)
-            df_display = df
+            df_final = df
 
         m3.metric("✅ Zrealizowane", len(df_zreal_count))
         m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
         
-        if not df_display.empty:
-            st.data_editor(df_display, use_container_width=True, hide_index=True, height=550)
+        if not df_final.empty:
+            st.data_editor(df_final, use_container_width=True, hide_index=True, height=550)
         else:
-            st.info("Brak aktywnych zadań w tej sekcji.")
+            st.info("Brak aktywnych zadań.")
 
 st.markdown(f'<div style="margin-top: 15px; padding: 5px 15px; background-color: #1e293b; border-top: 3px solid #eab308; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; color: white;"><div style="color:#eab308; font-weight:800; font-size:0.8rem;">UZDROWISKO CIECHOCINEK S.A.</div><div>{now_pl.strftime("%d.%m.%Y | %H:%M:%S")}</div></div>', unsafe_allow_html=True)
