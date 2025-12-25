@@ -7,7 +7,7 @@ import requests
 from streamlit_autorefresh import st_autorefresh
 
 # ==========================================================
-# 1. KONFIGURACJA STRONY (Musi być na samym początku)
+# 1. KONFIGURACJA STRONY
 # ==========================================================
 st.set_page_config(
     page_title="System Uzdrowisko", 
@@ -15,11 +15,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Autorefresh co 5 minut ---
+# Autorefresh co 5 minut
 st_autorefresh(interval=300000, key="datarefresh")
 
 # ==========================================================
-# 2. DANE DOSTĘPOWE I PARAMETRY
+# 2. DANE DOSTĘPOWE
 # ==========================================================
 KLUCZE_DOSTEPU = {
     "Andrzej": "8800",
@@ -35,14 +35,13 @@ NAZWA_ARKUSZA = "Marta-Dział Techniczny"
 LISTA_OSOB = list(KLUCZE_DOSTEPU.keys())
 
 # ==========================================================
-# 3. WERYFIKACJA UŻYTKOWNIKA (URL)
+# 3. WERYFIKACJA UŻYTKOWNIKA
 # ==========================================================
 user_url = st.query_params.get("u", "")
 key_url = st.query_params.get("k", "")
 
 if user_url in KLUCZE_DOSTEPU and KLUCZE_DOSTEPU[user_url] == key_url:
     zalogowany_uzytkownik = user_url
-    # Andrzej Walczak i Marta mają pełne uprawnienia admina
     czy_admin = (user_url in ["Andrzej", "Marta"])
 else:
     st.error("❌ BŁĄD DOSTĘPU: Nieprawidłowy link lub klucz.")
@@ -60,7 +59,6 @@ def wyslij_telegram(wiadomosc):
         pass
 
 def polacz_z_google():
-    # Pobieranie poświadczeń z Streamlit Secrets
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
         st.secrets["gcp_service_account"], 
         ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -78,7 +76,7 @@ def pobierz_dane(zakladka):
         return pd.DataFrame()
 
 # ==========================================================
-# 5. STYLIZACJA CSS ( Sidebar i Metryki )
+# 5. STYLIZACJA CSS
 # ==========================================================
 st.markdown("""
     <style>
@@ -87,6 +85,7 @@ st.markdown("""
     .stButton button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; text-transform: uppercase !important;
+        font-size: 0.8rem !important;
     }
     [data-testid="stMetric"] { 
         background-color: white !important; 
@@ -99,19 +98,20 @@ st.markdown("""
         background-color: #0ea5e9 !important; border-radius: 4px !important; 
         display: flex; align-items: center; justify-content: center; 
         color: white !important; font-weight: bold !important; height: 40px !important; 
-        text-decoration: none !important; margin-top: 20px;
+        text-decoration: none !important; margin-top: 20px; font-size: 0.8rem;
     }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 6. OKNA DIALOGOWE
+# 6. OKNO DODAWANIA ZADANIA
 # ==========================================================
 @st.dialog("➕ Dodaj nowe zadanie")
 def dodaj_zadanie_dialog():
     with st.form("form_dodaj"):
         tresc = st.text_area("Treść zadania:")
-        osoba = st.selectbox("Przypisz do:", ["Brak"] + LISTA_OSOB)
+        domyslny_osoba = zalogowany_uzytkownik if zalogowany_uzytkownik in LISTA_OSOB else "Brak"
+        osoba = st.selectbox("Przypisz do:", ["Brak"] + LISTA_OSOB, index=(["Brak"] + LISTA_OSOB).index(domyslny_osoba))
         termin = st.date_input("Termin realizacji:", datetime.now())
         uwagi = st.text_input("Dodatkowe uwagi:")
         if st.form_submit_button("ZAPISZ DO ARKUSZA"):
@@ -128,7 +128,6 @@ def dodaj_zadanie_dialog():
 # 7. PANEL BOCZNY (SIDEBAR)
 # ==========================================================
 with st.sidebar:
-    # Logo tekstowe/graficzne
     st.markdown("<h2 style='color: #0ea5e9; text-align:center;'>UZDROWISKO<br><span style='color:#eab308'>CIECHOCINEK</span></h2>", unsafe_allow_html=True)
     st.divider()
     
@@ -139,14 +138,15 @@ with st.sidebar:
         st.cache_data.clear(); st.rerun()
         
     st.markdown(f'<a href="https://t.me/share/url?text=Monitorowanie" class="tg_btn">✈️ WYŚLIJ NA TELEGRAM</a>', unsafe_allow_html=True)
-    st.markdown(f"<div style='text-align:center; color:#94a3b8; margin-top:50px;'>Zalogowany: <b>{zalogowany_uzytkownik}</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center; color:#94a3b8; margin-top:50px; font-size:0.8rem;'>Zalogowany: <b>{zalogowany_uzytkownik}</b></div>", unsafe_allow_html=True)
 
 # ==========================================================
 # 8. WIDOK GŁÓWNY
 # ==========================================================
-st.markdown('<h3 style="text-align:center;">Centrum Zarządzania Administracją</h3>', unsafe_allow_html=True)
+st.markdown('<h3 style="text-align:center; color: #1e293b;">Centrum Zarządzania Administracją</h3>', unsafe_allow_html=True)
 
-if 'widok' not in st.session_state: st.session_state['widok'] = 'biezace'
+if 'widok' not in st.session_state: 
+    st.session_state['widok'] = 'biezace'
 
 c1, c2 = st.columns(2)
 with c1:
@@ -155,27 +155,35 @@ with c2:
     if st.button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
 
 # Pobieranie danych
-zakl = "Zadania bieżące" if st.session_state['widok'] == 'biezace' else "Zadania zrealizowane"
-df = pobierz_dane(zakl)
+zakladka_nazwa = "Zadania bieżące" if st.session_state['widok'] == 'biezace' else "Zadania zrealizowane"
+df = pobierz_dane(zakladka_nazwa)
 
 if not df.empty:
-    # Filtrowanie pod użytkownika
+    # --- LOGIKA LICZENIA TYLKO KOLUMNY A (Usuwanie pustych wierszy z Google Sheets) ---
+    kolumna_a = df.columns[0]
+    df = df[df[kolumna_a].astype(str).str.strip() != ""]
+
+    # Filtrowanie uprawnień
     if not czy_admin:
         if zalogowany_uzytkownik == "Sławek":
             df = df[df['OSOBA'] == "Sławek"]
         else:
             df = df[(df['OSOBA'] == zalogowany_uzytkownik) | (df['OSOBA'] == "") | (df['OSOBA'] == "Brak")]
 
-    # Metryki (tylko dla zadań bieżących)
+    # Metryki
+    m1, m2, m3 = st.columns(3)
+    m1.metric("📋 Razem", len(df))
+    
     if st.session_state['widok'] == 'biezace' and 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
-        m1, m2, m3 = st.columns(3)
-        m1.metric("📋 Razem", len(df))
-        # Zgodnie z Twoją prośbą: -2 to dwa dni do realizacji, wartości dodatnie to miniony czas
+        # Pilne wg Twojej instrukcji (wartości -2 i wyżej)
         m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
-        m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
+    else:
+        m2.metric("✅ Status", "Zarchiwizowane")
+        
+    m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
 
     # Wyświetlanie tabeli
-    st.data_editor(df, use_container_width=True, hide_index=True, height=600)
+    st.data_editor(df, use_container_width=True, hide_index=True, height=650)
 else:
-    st.info("Brak zadań do wyświetlenia w tej kategorii.")
+    st.info(f"Brak zapisanych zadań w sekcji: {zakladka_nazwa}")
