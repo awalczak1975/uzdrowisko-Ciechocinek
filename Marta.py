@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA PANELU)
+# 1. KONFIGURACJA I STYLIZACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=10000, key="global_refresh")
@@ -20,23 +20,31 @@ st.markdown("""
     .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
-    /* LOGO HOME */
     .logo-container { text-align: center; margin-top: -35px !important; margin-bottom: 15px !important; }
     .logo-container img { width: 190px; cursor: pointer; }
 
-    /* SEPARATORY W SIDEBARZE */
-    .sidebar-divider { border-top: 1px solid #334155; margin: 15px 0; }
-    .sidebar-header { color: #eab308; font-size: 0.85rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+    /* SEPARATORY I NAGŁÓWKI W SIDEBARZE */
+    .sidebar-divider { border-top: 1px solid #334155; margin: 12px 0; }
+    .sidebar-header { color: #eab308; font-size: 0.85rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+
+    /* STYL LISTY ZADAŃ POD KALENDARZEM */
+    .term-box {
+        background: #334155; 
+        padding: 6px 10px; 
+        border-radius: 6px; 
+        border-left: 4px solid #ef4444; 
+        margin-bottom: 6px; 
+        color: white; 
+        font-size: 0.72rem;
+        line-height: 1.3;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+    }
+    .term-date { color: #eab308; font-weight: bold; margin-right: 5px; }
 
     /* METRYKI GŁÓWNE */
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
     [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; padding: 10px !important; }
-
-    /* MESSENGER STYLE */
-    .bubble { padding: 10px 15px; border-radius: 18px; max-width: 80%; font-size: 0.9rem; margin-bottom: 5px; }
-    .bubble-mine { background-color: #eab308; color: #1e293b; margin-left: auto; border-bottom-right-radius: 4px; }
-    .bubble-theirs { background-color: #334155; color: white; margin-right: auto; border-bottom-left-radius: 4px; }
 
     /* BELKA DOLNA */
     .main-sheet-footer { margin-top: 15px; padding: 5px 15px; background-color: #1e293b; border-top: 3px solid #eab308; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; color: white; }
@@ -56,6 +64,7 @@ def pobierz_df(zakladka):
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
         df = pd.DataFrame(dane[1:], columns=dane[0])
+        # Filtrujemy tylko wiersze z wartością w kolumnie A
         return df[df.iloc[:, 0].astype(str).str.strip() != ""]
     except: return pd.DataFrame()
 
@@ -72,11 +81,11 @@ def generuj_kalendarz_html():
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 3. LOGIKA I SIDEBAR (Z PODZIAŁEM NA "ZAKŁADKI")
+# 3. LOGIKA I SIDEBAR (ZADANIA POD KALENDARZEM)
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 if u == "Andrzej" and k == "8800": zalogowany = u
-else: st.error("BŁŁD LOGOWANIA"); st.stop()
+else: st.error("BŁĄD LOGOWANIA"); st.stop()
 
 df_chat = pobierz_df("CZAT")
 has_new = False
@@ -86,7 +95,7 @@ if not df_chat.empty and 'ODBIORCA' in df_chat.columns:
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><a href="?u={u}&k={k}" target="_self"><img src="{LOGO_URL}"></a></div>', unsafe_allow_html=True)
     
-    # SEKCJA 1: NAWIGACJA
+    # NAWIGACJA
     st.markdown('<div class="sidebar-header">🧭 Nawigacja</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
@@ -96,33 +105,37 @@ with st.sidebar:
     
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
     
-    # SEKCJA 2: KALENDARZ
+    # KALENDARZ
     st.markdown('<div class="sidebar-header">📅 Kalendarz</div>', unsafe_allow_html=True)
     st.components.v1.html(generuj_kalendarz_html(), height=155)
     
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
     
-    # SEKCJA 3: NADCHODZĄCE
+    # --- PRZYWRÓCONE ZADANIA POD KALENDARZEM ---
     st.markdown('<div class="sidebar-header">🕒 Nadchodzące</div>', unsafe_allow_html=True)
     df_biez_side = pobierz_df("Zadania bieżące")
     if not df_biez_side.empty:
-        for _, r in df_biez_side.head(6).iterrows():
-            st.markdown(f'<div style="background:#334155; padding:5px; border-radius:5px; border-left:3px solid #ef4444; margin-bottom:4px; color:white; font-size:0.7rem;"><b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:30]}...</div>', unsafe_allow_html=True)
+        # Wyświetlamy do 8 zadań, aby nie przewijać panelu
+        for _, r in df_biez_side.head(8).iterrows():
+            st.markdown(f"""
+                <div class="term-box">
+                    <span class="term-date">{r.get('DEADLINE', '')}</span><br>
+                    {str(r.get('TREŚĆ ZADANIA', ''))[:40]}...
+                </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.markdown('<p style="color:#94a3b8; font-size:0.7rem;">Brak zadań.</p>', unsafe_allow_html=True)
 
-    # SEKCJA 4: STATUS
-    st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+    # STATUS CZATU
     if has_new:
+        st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
         st.markdown('<p style="color:#ef4444; font-weight:900; text-align:center; animation: blinker 1.5s linear infinite;">🔔 NOWA WIADOMOŚĆ!</p>', unsafe_allow_html=True)
         st.markdown('<audio autoplay><source src="https://www.soundjay.com/buttons/beep-07a.mp3"></audio>', unsafe_allow_html=True)
-    
-    st.markdown(f'<div style="text-align:center; color:#94a3b8; font-size:0.75rem;">Zalogowany: <b>{zalogowany}</b><br>&copy; 2025 Uzdrowisko</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (KAFELKI + MESSENGER)
+# 4. WIDOK GŁÓWNY (TABS + METRYKI)
 # ==========================================================
-chat_tab_label = "💬 CZAT 🔴" if has_new else "💬 CZAT"
-tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", chat_tab_label])
-
+tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "💬 CZAT"])
 now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
 df_zrealizowane = pobierz_df("Zadania zrealizowane")
 
@@ -140,20 +153,5 @@ for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy S
         if not df.empty:
             st.data_editor(df, use_container_width=True, hide_index=True, height=550)
 
-with tabs[3]:
-    st.write("### 💬 Messenger Firmowy")
-    odbiorca = st.selectbox("Rozmowa z:", ["Marta", "Sławek", "Agata", "Rafał", "Andrzej"])
-    chat_container = st.container(height=400, border=True)
-    with chat_container:
-        if not df_chat.empty and 'TREŚĆ' in df_chat.columns:
-            history = df_chat[((df_chat['NADAWCA'] == zalogowany) & (df_chat['ODBIORCA'] == odbiorca)) | 
-                             ((df_chat['NADAWCA'] == odbiorca) & (df_chat['ODBIORCA'] == zalogowany))]
-            for _, msg in history.tail(15).iterrows():
-                is_mine = msg['NADAWCA'] == zalogowany
-                cls = "bubble-mine" if is_mine else "bubble-theirs"
-                st.markdown(f'<div style="display:flex; flex-direction:column; align-items:{"flex-end" if is_mine else "flex-start"}"><div class="bubble {cls}"><b>{msg["NADAWCA"]}</b>: {msg["TREŚĆ"]}</div></div>', unsafe_allow_html=True)
-    t_input = st.chat_input("Napisz wiadomość...")
-    if t_input: # Tu funkcja wysyłania (wymaga gspread)
-        st.rerun()
-
+# BELKA DOLNA
 st.markdown(f'<div class="main-sheet-footer"><div style="color:#eab308; font-weight:800; font-size:0.8rem;">UZDROWISKO CIECHOCINEK S.A.</div><div>{now_pl.strftime("%d.%m.%Y | %H:%M:%S")}</div></div>', unsafe_allow_html=True)
