@@ -8,10 +8,10 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (POWIADOMIENIA CZATU)
-# ==========================
+# 1. KONFIGURACJA I STYLIZACJA
+# ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
-st_autorefresh(interval=10000, key="chat_refresh") # Częstsze odświeżanie dla czatu
+st_autorefresh(interval=10000, key="chat_refresh")
 
 LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20%281%29.png"
 
@@ -20,16 +20,11 @@ st.markdown("""
     .block-container { padding-top: 1rem !important; padding-bottom: 0px !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
-    /* POWIADOMIENIE CZATU - PULSOWANIE */
-    @keyframes pulse-red {
-        0% { background-color: #ef4444; }
-        50% { background-color: #7f1d1d; }
-        100% { background-color: #ef4444; }
-    }
-    .chat-notify {
-        animation: pulse-red 1.5s infinite;
-        color: white !important;
-        font-weight: bold;
+    /* POWIADOMIENIE - PULSUJĄCY CZERWONY PUNKT */
+    .notify-dot {
+        height: 12px; width: 12px; background-color: #ef4444;
+        border-radius: 50%; display: inline-block;
+        margin-right: 5px; box-shadow: 0 0 8px #ef4444;
     }
 
     /* KAFELKI METRYK */
@@ -37,23 +32,22 @@ st.markdown("""
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
     [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; padding: 10px !important; }
 
-    /* ZAKŁADKI */
+    /* ZAKŁADKI GÓRNE */
     button[data-baseweb="tab"] { font-size: 1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; margin-right: 5px !important; padding: 10px 20px !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
 
-    /* WIADOMOŚCI CZATU */
-    .chat-bubble { padding: 10px; border-radius: 15px; margin-bottom: 10px; max-width: 80%; }
-    .chat-mine { background-color: #eab308; color: #1e293b; margin-left: auto; border-bottom-right-radius: 2px; }
-    .chat-theirs { background-color: #334155; color: white; margin-right: auto; border-bottom-left-radius: 2px; }
+    /* CZAT - BALONIKI */
+    .chat-bubble { padding: 12px; border-radius: 15px; margin-bottom: 8px; max-width: 85%; font-family: sans-serif; line-height: 1.4; }
+    .chat-mine { background-color: #eab308; color: #1e293b; margin-left: auto; border-bottom-right-radius: 2px; text-align: right; }
+    .chat-theirs { background-color: #334155; color: white; margin-right: auto; border-bottom-left-radius: 2px; border-left: 5px solid #ef4444; }
 
     /* BELKA DOLNA */
     .main-sheet-footer { margin-top: 15px; padding: 5px 15px; background-color: #1e293b; border-top: 3px solid #eab308; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; color: white; }
-    .footer-brand { font-size: 0.8rem; font-weight: 800; color: #eab308; }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. FUNKCJE TECHNICZNE (GSPREAD)
+# 2. FUNKCJE TECHNICZNE
 # ==========================================================
 def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
@@ -63,7 +57,7 @@ def pobierz_df(zakladka):
     try:
         ws = polacz().open("Marta-Dział Techniczny").worksheet(zakladka)
         dane = ws.get_all_values()
-        if not dane: return pd.DataFrame()
+        if len(dane) < 2: return pd.DataFrame(columns=dane[0] if dane else [])
         return pd.DataFrame(dane[1:], columns=dane[0])
     except: return pd.DataFrame()
 
@@ -82,68 +76,66 @@ u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 if u == "Andrzej" and k == "8800": zalogowany = u
 else: st.error("BŁĄD LOGOWANIA"); st.stop()
 
+# Bezpieczne pobieranie czatu
 df_chat = pobierz_df("CZAT")
-nowe_wiadomosci = not df_chat[(df_chat['ODBIORCA'] == zalogowany) & (df_chat['STATUS'] == "NIEPRZECZYTANE")].empty
+nowe_wiadomosci = False
+if not df_chat.empty and 'ODBIORCA' in df_chat.columns and 'STATUS' in df_chat.columns:
+    nowe_wiadomosci = not df_chat[(df_chat['ODBIORCA'] == zalogowany) & (df_chat['STATUS'] == "NIEPRZECZYTANE")].empty
 
 with st.sidebar:
     st.markdown(f'<div style="text-align:center; margin-top:-30px;"><a href="?u={u}&k={k}" target="_self"><img src="{LOGO_URL}" width="200"></a></div>', unsafe_allow_html=True)
     st.divider()
     if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True): st.cache_data.clear(); st.rerun()
     
-    st.markdown(f'<div style="text-align:center; color:#94a3b8; font-size:0.8rem; margin-top:20px;">System Zarządzania &copy; 2025<br><b>Andrzej Walczak</b></div>', unsafe_allow_html=True)
+    # Powiadomienie w sidebarze
+    if nowe_wiadomosci:
+        st.error("❗ MASZ NOWĄ WIADOMOŚĆ!")
+
+    now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
+    st.markdown(f'<div style="text-align:center; color:#94a3b8; font-size:0.75rem; margin-top:20px;">System Zarządzania &copy; 2025<br><b>Andrzej Walczak</b></div>', unsafe_allow_html=True)
 
 # ==========================================================
 # 4. WIDOK GŁÓWNY
 # ==========================================================
-# Zakładka czatu pulsuje, jeśli są nowe wiadomości
-chat_label = "🔴 CZAT (NOWY!)" if nowe_wiadomosci else "🔴 CZAT"
-tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", chat_label])
+label_czat = "🔴 CZAT (NOWY!)" if nowe_wiadomosci else "🔴 CZAT"
+tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", label_czat])
 
-# Widoki zadań (uproszczone dla czytelności kodu)
-for i in range(3):
+# Zakładki zadań
+for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
     with tabs[i]:
-        kat = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"][i]
         df = pobierz_df(kat)
         if not df.empty:
-            st.metric("📋 Razem w " + kat, len(df))
+            m1, m2, m3 = st.columns(3)
+            m1.metric("📋 Razem", len(df))
+            m2.metric("🕒 Godzina", now_pl.strftime("%H:%M"))
             st.data_editor(df, use_container_width=True, hide_index=True, height=500)
 
 # --- MODUŁ CZATU ---
 with tabs[3]:
-    st.subheader("💬 Komunikator Służbowy")
-    
     pracownicy = ["Marta", "Sławek", "Andrzej", "Agata", "Rafał"]
-    col1, col2 = st.columns([1, 3])
+    odbiorca = st.selectbox("💬 Wybierz do kogo piszesz:", [p for p in pracownicy if p != zalogowany])
     
-    with col1:
-        odbiorca = st.selectbox("Wybierz adresata:", [p for p in pracownicy if p != zalogowany])
-        st.write("---")
-        if nowe_wiadomosci:
-            st.warning("Masz nowe wiadomości!")
-
-    with col2:
-        # Wyświetlanie historii rozmowy z wybranym odbiorcą
+    # Historia
+    chat_box = st.container(height=450, border=True)
+    if not df_chat.empty and 'NADAWCA' in df_chat.columns:
         history = df_chat[((df_chat['NADAWCA'] == zalogowany) & (df_chat['ODBIORCA'] == odbiorca)) | 
                          ((df_chat['NADAWCA'] == odbiorca) & (df_chat['ODBIORCA'] == zalogowany))]
         
-        chat_container = st.container(height=400)
-        for _, msg in history.iterrows():
-            style = "chat-mine" if msg['NADAWCA'] == zalogowany else "chat-theirs"
-            chat_container.markdown(f'<div class="chat-bubble {style}"><b>{msg["NADAWCA"]}</b><br>{msg["TREŚĆ"]}</div>', unsafe_allow_html=True)
-        
-        # Wysyłanie wiadomości
-        with st.container():
-            t_msg = st.text_input("Napisz wiadomość...", key="chat_input")
-            if st.button("Wyślij ➔"):
-                if t_msg:
-                    if wyslij_wiadomosc(zalogowany, odbiorca, t_msg):
-                        st.cache_data.clear(); st.rerun()
+        for _, msg in history.tail(20).iterrows():
+            is_mine = msg['NADAWCA'] == zalogowany
+            cls = "chat-mine" if is_mine else "chat-theirs"
+            chat_box.markdown(f'<div class="chat-bubble {cls}"><b>{msg["NADAWCA"]}</b><br>{msg["TREŚĆ"]}<br><small style="opacity:0.7;">{msg["CZAS"]}</small></div>', unsafe_allow_html=True)
+
+    # Pisanie
+    tresc = st.chat_input("Napisz wiadomość...")
+    if tresc:
+        if wyslij_wiadomosc(zalogowany, odbiorca, tresc):
+            st.rerun()
 
 # --- ULTRA KOMPAKTOWA BELKA DOLNA ---
-now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
 st.markdown(f"""
     <div class="main-sheet-footer">
         <div class="footer-brand">UZDROWISKO CIECHOCINEK S.A.</div>
-        <div class="footer-info">{now_pl.strftime('%d.%m.%Y | %H:%M:%S')} | Komunikator aktywny</div>
+        <div class="footer-info">{now_pl.strftime('%d.%m.%Y | %H:%M:%S')} | Moduł komunikacji aktywny</div>
     </div>
 """, unsafe_allow_html=True)
