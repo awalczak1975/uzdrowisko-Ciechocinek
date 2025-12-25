@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (POMNIEJSZONE METRYKI)
+# 1. KONFIGURACJA I STYLIZACJA (LOGO PODNIESIONE WYŻEJ)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -19,7 +19,13 @@ st.markdown("""
     <style>
     .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
-    .logo-container { text-align: center; margin-top: -35px !important; margin-bottom: 10px !important; }
+    
+    /* --- PODNIESIENIE LOGO O OK. 3MM --- */
+    .logo-container { 
+        text-align: center; 
+        margin-top: -50px !important; /* Zmieniono z -35px na -50px */
+        margin-bottom: 15px !important; 
+    }
     .logo-container img { width: 190px; cursor: pointer; }
     
     .sticky-user-badge {
@@ -30,27 +36,18 @@ st.markdown("""
         z-index: 999999; box-shadow: 0 4px 10px rgba(0,0,0,0.4); border: 1px solid white;
     }
 
-    /* --- ZMNIEJSZONE METRYKI O 20% --- */
+    /* POMNIEJSZONE METRYKI */
     [data-testid="stMetricValue"] > div { 
-        display: flex !important; 
-        justify-content: center !important; 
-        color: #eab308 !important; 
-        font-weight: 900 !important; 
-        font-size: 1.8rem !important; /* Zmniejszono z 2.2rem */
+        display: flex !important; justify-content: center !important; 
+        color: #eab308 !important; font-weight: 900 !important; font-size: 1.8rem !important; 
     }
     [data-testid="stMetricLabel"] > div { 
-        display: flex !important; 
-        justify-content: center !important; 
-        color: white !important; 
-        font-weight: 600 !important;
-        font-size: 0.85rem !important; /* Delikatnie mniejsza czcionka etykiety */
+        display: flex !important; justify-content: center !important; 
+        color: white !important; font-weight: 600 !important; font-size: 0.85rem !important; 
     }
     [data-testid="stMetric"] { 
-        background-color: #1e293b !important; 
-        border-top: 4px solid #eab308 !important; 
-        border-radius: 10px !important; 
-        padding: 5px 10px !important; /* Zmniejszono padding z 10px na 5px (wysokość) */
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
+        border-radius: 10px !important; padding: 5px 10px !important; 
     }
 
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; margin-right: 5px; padding: 10px 25px !important; border: 1px solid #cbd5e1 !important; }
@@ -111,7 +108,7 @@ def generuj_kalendarz_html(df_zadania, user):
                 bg = "#eab308" if day == now.day else "transparent"
                 color = "#ef4444" if day in dni_z_terminami else "#1e293b"
                 border = "1px solid #ef4444" if day in dni_z_terminami else "none"
-                html += f'<td style="text-align:center; font-weight:700; background-color:{bg}; color:{color}; border:{border}; border-radius:4px;">{day}</td>'
+                html += f'<td style="text-align:center; padding:2px; font-weight:700; background-color:{bg}; color:{color}; border:{border}; border-radius:4px;">{day}</td>'
         html += "</tr>"
     return html + "</tbody></table></div>"
 
