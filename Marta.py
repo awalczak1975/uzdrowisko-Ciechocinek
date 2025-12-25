@@ -7,91 +7,54 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I PEŁNA STYLIZACJA (KOLORYSTYKA UZDROWISKA)
+# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA CZYTELNOŚCI)
 # ==========================================================
-st.set_page_config(
-    page_title="System Uzdrowisko", 
-    layout="wide", 
-    initial_sidebar_state="expanded"
-)
-
+st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
 
 st.markdown("""
     <style>
-    /* LEWY PANEL BOCZNY */
-    [data-testid="stSidebar"] { 
-        background-color: #1e293b !important; 
-        border-right: 5px solid #eab308 !important; 
-    }
-    [data-testid="stSidebar"] * { color: white !important; }
+    .block-container { padding-top: 1rem !important; }
+    [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
-    /* PRZYCISKI W PANELU */
-    [data-testid="stSidebar"] div.stButton > button {
-        background-color: #334155 !important; color: white !important;
-        border: 1px solid #94a3b8 !important; font-weight: 600 !important;
+    /* NAPRAWA CZYTELNOŚCI ZAKŁADEK (TABS) */
+    button[data-baseweb="tab"] {
+        font-size: 1.3rem !important; /* Większa czcionka */
+        font-weight: 800 !important;
+        color: #94a3b8 !important; /* Jasny szary dla nieaktywnych */
+        padding: 10px 20px !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: white !important; /* Biały dla aktywnej zakładki */
+        background-color: #334155 !important; /* Lekkie podświetlenie tła */
+        border-radius: 10px 10px 0 0 !important;
+        border-bottom: 3px solid #eab308 !important; /* Złota linia */
     }
 
-    /* 3 GŁÓWNE KAFELKI PODSUMOWANIA (KOLOR LEWEJ KOLUMNY) */
+    /* KAFELKI PODSUMOWANIA */
     [data-testid="stMetric"] { 
-        background-color: #1e293b !important; 
-        border-top: 4px solid #eab308 !important; 
-        border-radius: 10px !important; 
-        padding: 20px !important; 
-        text-align: center !important; 
+        background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
+        border-radius: 10px !important; text-align: center !important; 
         box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
-    /* Kolory tekstów w kafelkach */
-    [data-testid="stMetricValue"] > div { 
-        color: #eab308 !important; 
-        font-weight: 900 !important; 
-        font-size: 2.5rem !important; 
-        justify-content: center !important; 
-        display: flex !important;
-    }
-    [data-testid="stMetricLabel"] > div { 
-        color: white !important; 
-        font-size: 1.2rem !important; 
-        font-weight: 600 !important; 
-        justify-content: center !important; 
-        display: flex !important;
-    }
-
-    /* NAGŁÓWKI ZAKŁADEK */
-    button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; }
-    button[data-baseweb="tab"][aria-selected="true"] { color: #eab308 !important; border-bottom-color: #eab308 !important; }
+    [data-testid="stMetricValue"] > div { color: #eab308 !important; font-weight: 900 !important; font-size: 2.5rem !important; justify-content: center !important; display: flex !important; }
+    [data-testid="stMetricLabel"] > div { color: white !important; font-size: 1.2rem !important; font-weight: 600 !important; justify-content: center !important; display: flex !important; }
 
     /* STYL CZATU */
-    .chat-bubble {
-        padding: 12px 18px; border-radius: 10px; margin-bottom: 8px;
-        border-left: 5px solid #0ea5e9; background-color: #f8fafc;
-    }
-    .chat-to { color: #eab308; font-weight: bold; font-size: 0.8rem; }
+    .chat-bubble { padding: 12px 18px; border-radius: 10px; margin-bottom: 8px; border-left: 5px solid #0ea5e9; background-color: #f8fafc; }
     
     /* DOLNA BELKA WWW */
-    .nav-bar {
-        display: flex; justify-content: center; background-color: white;
-        border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; 
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-top: 40px;
-    }
-    .nav-item {
-        flex: 1; text-align: center; padding: 18px 10px;
-        text-decoration: none !important; color: #1e293b !important;
-        font-weight: 700; font-size: 0.8rem; border-right: 1px solid #f1f5f9;
-        text-transform: uppercase;
-    }
+    .nav-bar { display: flex; justify-content: center; background-color: white; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-top: 40px; }
+    .nav-item { flex: 1; text-align: center; padding: 18px 10px; text-decoration: none !important; color: #1e293b !important; font-weight: 700; font-size: 0.8rem; border-right: 1px solid #f1f5f9; text-transform: uppercase; }
     .nav-item:hover { background-color: #f8fafc; color: #eab308 !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. FUNKCJE TECHNICZNE
+# 2. FUNKCJE
 # ==========================================================
 def polacz():
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(
-        st.secrets["gcp_service_account"], 
-        ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    )
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
     return gspread.authorize(creds)
 
 def pobierz_df(zakladka):
@@ -99,7 +62,7 @@ def pobierz_df(zakladka):
         ws = polacz().open("Marta-Dział Techniczny").worksheet(zakladka)
         dane = ws.get_all_values()
         if not dane: return pd.DataFrame()
-        df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :5]
+        df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :6] # Pobieramy 6 kolumn
         return df[df.iloc[:, 0].str.strip() != ""]
     except: return pd.DataFrame()
 
@@ -120,7 +83,7 @@ def wyslij_chat(autor, adresat, tekst):
     except: return False
 
 # ==========================================================
-# 3. WERYFIKACJA I PANEL BOCZNY
+# 3. WERYFIKACJA I SIDEBAR
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 uzytkownicy = {"Andrzej": "8800", "Marta": "1234", "Rafał": "5566", "Agata": "9911", "Sławek": "4422"}
@@ -132,7 +95,7 @@ else:
     st.error("❌ BŁĄD DOSTĘPU"); st.stop()
 
 with st.sidebar:
-    st.markdown("<h2 style='text-align:center;'>UZDROWISKO<br><span style='color:#eab308'>CIECHOCINEK</span></h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align:center; color:white;'>UZDROWISKO<br><span style='color:#eab308'>CIECHOCINEK</span></h2>", unsafe_allow_html=True)
     st.divider()
     if st.button("🔄 ODŚWIEŻ DANE", use_container_width=True): 
         st.cache_data.clear()
@@ -140,12 +103,13 @@ with st.sidebar:
     st.write(f"Zalogowany: **{zalogowany}**")
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (ZAKŁADKI + CIEMNE KAFELKI)
+# 4. WIDOK GŁÓWNY
 # ==========================================================
 kat_list = ["Zadania bieżące", "Zadania zrealizowane"]
 if zalogowany == "Andrzej": kat_list.append("Terminy Sławka")
 kat_list.append("🔴 CZAT")
 
+# Wyświetlanie zakładek z nowym stylem
 tabs = st.tabs(kat_list)
 
 for i, kat in enumerate(kat_list[:-1]):
@@ -154,33 +118,32 @@ for i, kat in enumerate(kat_list[:-1]):
         if not df.empty:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
             
-            # KAFELKI W KOLORZE LEWEJ KOLUMNY (CIEMNE)
+            # KAFELKI
             m1, m2, m3 = st.columns(3)
             m1.metric("📋 Razem zadań", len(df))
             m2.metric("🔥 Pilne / Spóźnione", len(df[df['DNI_N'] >= -2]))
             m3.metric("🕒 Godzina", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
             
+            # Ikona alarmu
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
             
             edytowane = st.data_editor(
-                df, use_container_width=True, hide_index=True, height=450,
+                df, use_container_width=True, hide_index=True, height=500,
                 disabled=not czy_admin, key=f"ed_{kat}",
                 column_config={"DNI_N": None, "S": st.column_config.TextColumn(" ", width="small")}
             )
             
             if czy_admin:
-                if st.button(f"💾 ZAPISZ: {kat.upper()}", key=f"btn_{kat}"):
+                if st.button(f"💾 ZAPISZ ZMIANY: {kat.upper()}", key=f"btn_{kat}"):
                     if zapisz_df(edytowane.drop(columns=["S", "DNI_N"]), kat):
                         st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
 
-# CZAT Z WYBOREM ADRESATA
+# CZAT
 with tabs[-1]:
     st.subheader("Wybierz adresata i napisz wiadomość")
     c1, c2, c3 = st.columns([1, 3, 1])
-    with c1:
-        do_kogo = st.selectbox("Adresat:", ["Wszyscy"] + [name for name in uzytkownicy.keys() if name != zalogowany])
-    with c2:
-        msg = st.text_input("Twoja wiadomość...", key="chat_in")
+    with c1: do_kogo = st.selectbox("Adresat:", ["Wszyscy"] + [name for name in uzytkownicy.keys() if name != zalogowany])
+    with c2: msg = st.text_input("Twoja wiadomość...", key="chat_in")
     with c3:
         st.write(" ")
         if st.button("WYŚLIJ 📩", use_container_width=True):
@@ -191,13 +154,7 @@ with tabs[-1]:
     if not df_c.empty:
         for _, r in df_c.iloc[::-1].iterrows():
             if r['Adresat'] in [zalogowany, "Wszyscy"] or r['Autor'] == zalogowany:
-                st.markdown(f"""
-                    <div class="chat-bubble">
-                        <div class="chat-meta">{r['Autor']} • {r['Data']}</div>
-                        <div class="chat-to">DO: {r['Adresat']}</div>
-                        <div style="color:#1e293b;">{r['Wiadomość']}</div>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f'<div class="chat-bubble"><b>{r["Autor"]}</b> do <b>{r["Adresat"]}</b> ({r["Data"]}):<br>{r["Wiadomość"]}</div>', unsafe_allow_html=True)
 
 # ==========================================================
 # 5. DOLNA BELKA WWW
