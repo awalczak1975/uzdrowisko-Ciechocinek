@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (POWIĘKSZONE ELEMENTY)
+# 1. KONFIGURACJA I STYLIZACJA (POWROT DO KOLORYSTYKI PANELU)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
@@ -23,7 +23,7 @@ st.markdown("""
         border-right: 5px solid #eab308 !important; 
     }
     
-    /* PRZYCISKI W PANELU - POWIĘKSZONE O 20% (z 38px na ok. 46px) */
+    /* POWIĘKSZONE PRZYCISKI W PANELU */
     [data-testid="stSidebar"] div.stButton > button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; font-weight: 600 !important;
@@ -31,7 +31,22 @@ st.markdown("""
         font-size: 0.9rem !important;
     }
 
-    /* KAFELKI PODSUMOWANIA */
+    /* PRZYWRÓCENIE STYLIZACJI ZAKŁADEK (TABS) - KOLOR LEWEGO PANELU */
+    button[data-baseweb="tab"] {
+        font-size: 1.1rem !important; font-weight: 700 !important;
+        color: #475569 !important; background-color: #f1f5f9 !important;
+        border-radius: 8px 8px 0 0 !important; margin-right: 5px !important;
+        padding: 10px 25px !important; border: 1px solid #e2e8f0 !important;
+        transition: 0.3s !important;
+    }
+    /* AKTYWNA ZAKŁADKA = KOLOR PANELU BOCZNEGO */
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: white !important;
+        background-color: #1e293b !important; 
+        border-bottom: 4px solid #eab308 !important; 
+    }
+
+    /* KAFELKI PODSUMOWANIA - WYŚRODKOWANE */
     [data-testid="stMetric"] { 
         background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
         border-radius: 10px !important; text-align: center !important; 
@@ -40,7 +55,7 @@ st.markdown("""
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
 
-    /* INFO O UŻYTKOWNIKU NA DOLE */
+    /* INFO O UŻYTKOWNIKU */
     .sidebar-footer { position: fixed; bottom: 10px; width: 240px; text-align: center; color: #94a3b8; font-size: 0.75rem; }
     </style>
     """, unsafe_allow_html=True)
@@ -84,7 +99,7 @@ def generuj_kalendarz_html(df_zadania):
         mask = (df_zadania['DT'].dt.month == miesiac) & (df_zadania['DT'].dt.year == rok) & (df_zadania['DNI_N'] >= -2)
         pilne_daty = df_zadania[mask]['DT'].dt.day.unique().tolist()
 
-    # WYMUSZONE BIAŁE TŁO I WIĘKSZE KOMÓRKI (POWIĘKSZENIE O 20%)
+    # POWIĘKSZONY KALENDARZ Z BIAŁYM TŁEM
     html = f"""
     <div style="background-color: white; padding: 12px; border-radius: 10px; border: 2px solid #eab308; font-family: sans-serif;">
         <table style="width: 100%; border-collapse: collapse; line-height: 1.3;">
@@ -105,8 +120,7 @@ def generuj_kalendarz_html(df_zadania):
                 bg = "transparent"
                 color = "#1e293b"
                 border = "none"
-                if day == now.day:
-                    bg = "#eab308"
+                if day == now.day: bg = "#eab308"
                 if day in pilne_daty:
                     color = "#ef4444"
                     border = "1px solid #ef4444"
@@ -116,7 +130,7 @@ def generuj_kalendarz_html(df_zadania):
     return html
 
 # ==========================================================
-# 3. LOGIKA SIDEBARU (LOGO -> PRZYCISKI -> KALENDARZ)
+# 3. LOGIKA SIDEBARU
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 if u == "Andrzej" and k == "8800":
@@ -124,13 +138,11 @@ if u == "Andrzej" and k == "8800":
 else:
     st.error("BŁĄD LOGOWANIA"); st.stop()
 
-# Pobranie danych do kalendarza
 df_biezace = pobierz_df("Zadania bieżące")
 df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    # LOGO GRAFICZNE
     st.markdown("""
         <div style="text-align:center; padding-bottom: 10px;">
             <div style="color:#eab308; font-size: 24px; font-weight: 900; line-height: 0.8;">UZDROWISKO</div>
@@ -140,18 +152,15 @@ with st.sidebar:
     
     st.divider()
     
-    # PRZYCISKI (POWIĘKSZONE W CSS)
     if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True):
-        st.info("Dodaj zadanie w Arkuszu Google.")
+        st.info("Otwórz Arkusz Google, aby dodać zadanie.")
     
     if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
     
-    # KALENDARZ (POWIĘKSZONA WYSOKOŚĆ z 190 na 230)
     st.components.v1.html(generuj_kalendarz_html(df_total), height=230)
     
-    # INFO NA DOLE
     st.markdown(f'<div class="sidebar-footer">Zalogowany: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
 
 # ==========================================================
@@ -166,13 +175,19 @@ for i, kat in enumerate(kat_list[:-1]):
         if not df.empty:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
             
-            # KAFELKI PODSUMOWANIA
             m1, m2, m3 = st.columns(3)
             m1.metric("📋 Razem", len(df))
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
             m3.metric("🕒 Godzina", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
             
-            # Ikony statusu
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
             
-            st.data_editor(df, use_container_width=True, hide_index=True, height=750, key=f"ed_{kat}")
+            edytowane = st.data_editor(df, use_container_width=True, hide_index=True, height=750, key=f"ed_{kat}")
+            
+            if st.button(f"💾 ZAPISZ {kat.upper()}", key=f"btn_{kat}"):
+                if zapisz_df(edytowane.drop(columns=["S", "DNI_N"]), kat):
+                    st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
+
+with tabs[-1]:
+    st.subheader("🔴 Komunikacja")
+    st.info("System czatu w trakcie synchronizacji...")
