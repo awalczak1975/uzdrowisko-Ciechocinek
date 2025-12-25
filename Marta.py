@@ -8,12 +8,12 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA
+# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA LOGO)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
 
-# Poprawiony, zakodowany link do logo na GitHub
+# Bezpośredni link do logo na GitHub (Raw link z zakodowanymi znakami)
 LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20%281%29.png"
 
 st.markdown("""
@@ -26,18 +26,20 @@ st.markdown("""
         border-right: 5px solid #eab308 !important; 
     }
     
-    /* KLIKALNE LOGO - STYLIZACJA */
+    /* KLIKALNE LOGO - STYLIZACJA KONTENERA */
     .logo-container {
         text-align: center;
         margin-top: -30px !important;
-        margin-bottom: 10px !important;
+        margin-bottom: 20px !important;
     }
     .logo-container img {
         width: 200px;
         cursor: pointer;
-        transition: 0.3s;
+        transition: transform 0.3s ease;
     }
-    .logo-container img:hover { transform: scale(1.03); }
+    .logo-container img:hover {
+        transform: scale(1.03);
+    }
 
     /* PRZYCISKI W PANELU */
     [data-testid="stSidebar"] div.stButton > button {
@@ -57,14 +59,6 @@ st.markdown("""
         color: white !important; background-color: #1e293b !important; 
         border-bottom: 4px solid #eab308 !important; 
     }
-
-    /* METRYKI PODSUMOWANIA */
-    [data-testid="stMetric"] { 
-        background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
-        border-radius: 10px !important; text-align: center !important; 
-    }
-    [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; }
-    [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; }
 
     /* STOPKA NA DOLE */
     .sidebar-footer { position: fixed; bottom: 10px; width: 240px; text-align: center; color: #94a3b8; font-size: 0.75rem; }
@@ -122,7 +116,7 @@ def generuj_kalendarz_html(df_zadania):
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 3. LOGIKA SIDEBARU
+# 3. LOGIKA SIDEBARU (NAPRAWA LOGO I PRZYCISKU HOME)
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 if u == "Andrzej" and k == "8800": zalogowany = u
@@ -133,8 +127,7 @@ df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    # --- LOGO JAKO LINK HOME (NAPRAWIONE) ---
-    # Kliknięcie w obrazek przeładowuje aplikację do stanu domyślnego
+    # --- LOGO JAKO LINK HOME (RESETUJE WIDOK) ---
     st.markdown(f"""
         <div class="logo-container">
             <a href="?u={u}&k={k}" target="_self">
