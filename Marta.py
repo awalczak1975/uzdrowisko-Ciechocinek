@@ -30,6 +30,7 @@ key_url = st.query_params.get("k", "")
 if user_url in KLUCZE_DOSTEPU and KLUCZE_DOSTEPU[user_url] == key_url:
     zalogowany_uzytkownik = user_url
     czy_andrzej = (user_url == "Andrzej")
+    czy_admin = (user_url in ["Andrzej", "Marta"])
 else:
     st.error("❌ BŁĄD DOSTĘPU: Nieprawidłowy link lub klucz.")
     st.stop()
@@ -50,7 +51,9 @@ def pobierz_dane(zakladka):
         sheet = client.open(NAZWA_ARKUSZA).worksheet(zakladka)
         dane = sheet.get('A1:E500') 
         if not dane: return pd.DataFrame()
-        return pd.DataFrame(dane[1:], columns=dane[0])
+        # Tworzymy DataFrame i upewniamy się, że nazwy kolumn są czyste
+        df = pd.DataFrame(dane[1:], columns=dane[0])
+        return df
     except:
         return pd.DataFrame()
 
@@ -80,7 +83,6 @@ def dodaj_zadanie_dialog():
                 client = polacz_z_google()
                 if osoba == "Sławek":
                     sheet = client.open(NAZWA_ARKUSZA).worksheet("Terminy Sławka")
-                    # Sławek ma kolumny: TREŚĆ ZADANIA, OSOBA, DEADLINE, DNI, NOTATKI
                     sheet.append_row([tresc, "Sławek", termin.strftime("%d.%m.%Y"), "", ""])
                 else:
                     sheet = client.open(NAZWA_ARKUSZA).worksheet("Zadania bieżące")
@@ -99,7 +101,6 @@ with st.sidebar:
 # ==========================================================
 if 'widok' not in st.session_state: st.session_state['widok'] = 'biezace'
 
-# Przyciski widoku
 if czy_andrzej:
     c1, c2, c3 = st.columns(3)
 else:
@@ -118,33 +119,32 @@ zakladka_nazwa = mapa_zakladek[st.session_state['widok']]
 df = pobierz_dane(zakladka_nazwa)
 
 if not df.empty:
-    # Usuwanie całkowicie pustych wierszy
+    # 1. Usuwanie pustych wierszy na podstawie kolumny A
     df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
 
-    # Sortowanie daty
-    kolumna_terminu = "DEADLINE" if st.session_state['widok'] == 'slawek' else "TERMIN"
+    # 2. Sortowanie daty (Obsługa kolumn TERMIN lub DEADLINE)
+    kolumna_terminu = "DEADLINE" if "DEADLINE" in df.columns else "TERMIN"
     if kolumna_terminu in df.columns:
         df['temp_date'] = pd.to_datetime(df[kolumna_terminu], dayfirst=True, errors='coerce')
         df = df.sort_values(by='temp_date', ascending=True).drop(columns=['temp_date'])
 
-    # Filtrowanie Sławka
+    # 3. Filtrowanie uprawnień
     if zalogowany_uzytkownik == "Sławek":
         if st.session_state['widok'] == 'slawek': pass
         else: df = df[df['OSOBA'] == "Sławek"]
     elif zalogowany_uzytkownik not in ["Andrzej", "Marta"]:
         df = df[df['OSOBA'] != "Sławek"]
 
-    # Metryki
+    # 4. Metryki
     m1, m2, m3 = st.columns(3)
     m1.metric("📋 Razem", len(df))
     if 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
-        # Pilne to te gdzie DNI jest ujemne (zrealizowane) lub bliskie 0
         m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
     else: m2.metric("Status", "Aktywne")
     m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
 
-    # Tabela (bez parametru alignment aby uniknąć TypeError)
+    # 5. Tabela - Usunięto parametr alignment, aby uniknąć błędu TypeError
     st.data_editor(df, use_container_width=True, hide_index=True, height=650, column_config={"DNI_N": None})
 else:
-    st.info(f"Brak danych w: {zakladka_nazwa}")
+    st.info(f"Brak zadań w: {zakladka_nazwa}")
