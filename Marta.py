@@ -66,41 +66,26 @@ def aktualizuj_arkusz(df_nowy, nazwa_zakladki):
         ws.clear()
         ws.update("A1", dane_do_zapisu)
         return True
-    except Exception as e:
-        st.error(f"Błąd zapisu: {e}")
+    except:
         return False
 
 # ==========================================================
-# 5. STYLIZACJA CSS (W TYM NOWE MENU DOLNE)
+# 5. STYLIZACJA CSS
 # ==========================================================
 st.markdown("""
     <style>
-    .block-container { padding-top: 1rem !important; padding-bottom: 10rem !important; }
+    .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
-    
-    /* Styl przycisków głównych */
     div.stButton > button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; font-size: 0.85rem !important;
         font-weight: 600 !important; width: 100% !important; height: 50px !important;
     }
-
-    /* Styl paska dolnego */
-    .footer-nav {
-        background-color: white;
-        border-top: 2px solid #e5e7eb;
-        padding: 10px;
+    [data-testid="stMetric"] { 
+        background-color: white !important; border-top: 4px solid #eab308 !important; 
+        border-radius: 8px !important; padding: 15px !important; text-align: center !important; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .footer-link {
-        text-decoration: none !important;
-        color: #1e293b !important;
-        font-weight: bold;
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        padding: 10px 15px;
-        border-right: 1px solid #ddd;
-    }
-    .footer-link:last-child { border-right: none; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -135,58 +120,59 @@ with st.sidebar:
 # ==========================================================
 if 'widok' not in st.session_state: st.session_state['widok'] = 'biezace'
 
-cols_nav = st.columns(3) if czy_andrzej else st.columns([1, 1, 0.01])
-if cols_nav[0].button("📋 BIEŻĄCE", use_container_width=True): st.session_state['widok'] = 'biezace'
-if cols_nav[1].button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
-if czy_andrzej and cols_nav[2].button("🔧 SŁAWEK", use_container_width=True): st.session_state['widok'] = 'slawek'
+# Nawigacja górna
+cols = st.columns(3) if czy_andrzej else st.columns([1, 1, 0.01])
+if cols[0].button("📋 BIEŻĄCE", use_container_width=True): st.session_state['widok'] = 'biezace'
+if cols[1].button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
+if czy_andrzej and cols[2].button("🔧 SŁAWEK", use_container_width=True): st.session_state['widok'] = 'slawek'
 
 mapa = {'biezace': "Zadania bieżące", 'zrealizowane': "Zadania zrealizowane", 'slawek': "Terminy Sławka"}
 zakladka_aktualna = mapa[st.session_state['widok']]
 df = pobierz_dane_final(zakladka_aktualna)
 
 if not df.empty:
+    # Przygotowanie Danych
     kol_data = "DEADLINE" if "DEADLINE" in df.columns else "TERMIN"
     if kol_data in df.columns:
         df['tmp'] = pd.to_datetime(df[kol_data], dayfirst=True, errors='coerce')
         df = df.sort_values(by='tmp', ascending=True).drop(columns=['tmp'])
-
     if 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
         df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
 
-    st.data_editor(
-        df, use_container_width=True, hide_index=True, height=450, 
+    # Metryki
+    m1, m2, m3 = st.columns(3)
+    m1.metric("📋 Razem", len(df))
+    m2.metric("🔥 Pilne", len(df[df['DNI_N'] >= -2]) if 'DNI_N' in df.columns else "0")
+    m3.metric("🕒 Godzina", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
+
+    # TABELA
+    edytowane_df = st.data_editor(
+        df, use_container_width=True, hide_index=True, height=400, 
         disabled=not czy_admin, key=f"ed_{st.session_state['widok']}",
         column_config={"DNI_N": None, "S": st.column_config.TextColumn(" ", width="small")}
     )
 
-    if czy_admin and st.button("💾 ZAPISZ ZMIANY W ARKUSZU", use_container_width=True, type="primary"):
-        if aktualizuj_arkusz(df.drop(columns=["S", "DNI_N"]), zakladka_aktualna):
-            st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
+    # PRZYCISK ZAPISU - teraz bardziej widoczny
+    if czy_admin:
+        st.write("")
+        if st.button("💾 ZAPISZ ZMIANY W ARKUSZU", use_container_width=True, type="primary"):
+            if aktualizuj_arkusz(edytowane_df.drop(columns=["S", "DNI_N"]), zakladka_aktualna):
+                st.success("Zapisano pomyślnie!"); st.cache_data.clear(); st.rerun()
+            else: st.error("Błąd połączenia z Google Sheets")
 
 # ==========================================================
-# 8. INTERAKTYWNE MENU DOLNE (ZGODNE Z GRAFIKĄ)
+# 8. MENU DOLNE (AKTYWNE LINKI)
 # ==========================================================
-st.write("") # Odstęp
 st.markdown("---")
-st.markdown("### 🌐 SKRÓTY DO STRONY UZDROWISKA")
+st.markdown("### 🌐 SZYBKI DOSTĘP: UZDROWISKOCIECHOCINEK.PL")
+m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
+with m1: st.link_button("🏠 OFERTA", "https://uzdrowiskociechocinek.pl/oferta/")
+with m2: st.link_button("🏨 SANATORIA", "https://uzdrowiskociechocinek.pl/sanatoria/")
+with m3: st.link_button("⛲ TĘŻNIE", "https://uzdrowiskociechocinek.pl/teznia-i-inne-atrakcje/")
+with m4: st.link_button("👥 O NAS", "https://uzdrowiskociechocinek.pl/o-uzdrowisku/")
+with m5: st.link_button("💆 ZABIEGI", "https://uzdrowiskociechocinek.pl/zabiegi/")
+with m6: st.link_button("🛒 SKLEP", "https://uzdrowiskociechocinek.pl/produkty-zdrojowe/")
+with m7: st.link_button("📞 KONTAKT", "https://uzdrowiskociechocinek.pl/kontakt/")
 
-# Używamy kolumn, aby odwzorować poziomy układ menu ze zdjęcia
-f1, f2, f3, f4, f5, f6 = st.columns(6)
-
-with f1: st.link_button("🏠 OFERTA", "https://uzdrowiskociechocinek.pl/oferta/", use_container_width=True)
-with f2: st.link_button("🏥 SANATORIA", "https://uzdrowiskociechocinek.pl/sanatoria/", use_container_width=True)
-with f3: st.link_button("⛲ ATRAKCJE", "https://uzdrowiskociechocinek.pl/teznia-i-inne-atrakcje/", use_container_width=True)
-with f4: st.link_button("📖 O NAS", "https://uzdrowiskociechocinek.pl/o-uzdrowisku/", use_container_width=True)
-with f5: st.link_button("💆 ZABIEGI", "https://uzdrowiskociechocinek.pl/zabiegi/", use_container_width=True)
-with f6: st.link_button("🛒 SKLEP", "https://uzdrowiskociechocinek.pl/produkty-zdrojowe/", use_container_width=True)
-
-# Dodatkowy pasek informacyjny na samym dole
-st.markdown(
-    f"""
-    <div style="background-color: #f8fafc; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #e2e8f0; margin-top: 20px;">
-        <span style="color: #64748b; font-size: 0.8rem;">© 2025 Uzdrowisko Ciechocinek S.A. | Zalogowany jako: <b>{zalogowany_uzytkownik}</b></span>
-    </div>
-    """, 
-    unsafe_allow_html=True
-)
+st.markdown(f"<div style='text-align:center; color:grey; font-size: 0.8rem; margin-top:20px;'>System Zarządzania Uzdrowisko Ciechocinek S.A. | {datetime.now().year}</div>", unsafe_allow_html=True)
