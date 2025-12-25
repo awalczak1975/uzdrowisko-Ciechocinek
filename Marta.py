@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (WYŚRODKOWANIE METRYK)
+# 1. KONFIGURACJA I STYLIZACJA (WYŚRODKOWANIE I UKŁAD)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
@@ -21,16 +21,16 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
     .logo-container { text-align: center; margin-top: -30px !important; margin-bottom: 20px !important; }
-    .logo-container img { width: 200px; cursor: pointer; transition: 0.3s; }
-    .logo-container img:hover { transform: scale(1.03); }
+    .logo-container img { width: 200px; cursor: pointer; }
 
+    /* PRZYCISKI BOCZNE */
     [data-testid="stSidebar"] div.stButton > button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; font-weight: 600 !important;
         height: 46px !important; margin-bottom: 5px !important;
     }
 
-    /* WYŚRODKOWANIE LICZB W KAFELKACH */
+    /* WYŚRODKOWANIE LICZB W KAFELKACH (METRYKACH) */
     [data-testid="stMetricValue"] > div { 
         display: flex !important; 
         justify-content: center !important; 
@@ -49,9 +49,10 @@ st.markdown("""
         border-top: 4px solid #eab308 !important; 
         border-radius: 10px !important; 
         padding: 10px !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
 
-    /* ZAKŁADKI */
+    /* ZAKŁADKI GÓRNE */
     button[data-baseweb="tab"] {
         font-size: 1.1rem !important; font-weight: 700 !important;
         color: #1e293b !important; background-color: #e2e8f0 !important;
@@ -125,6 +126,7 @@ if u == "Andrzej" and k == "8800": zalogowany = u
 else: st.error("BŁĄD LOGOWANIA"); st.stop()
 
 df_biezace = pobierz_df("Zadania bieżące")
+df_zrealizowane = pobierz_df("Zadania zrealizowane")
 df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
@@ -147,8 +149,7 @@ with st.sidebar:
 # ==========================================================
 # 4. WIDOK GŁÓWNY (ZAKŁADKI)
 # ==========================================================
-# Dodana zakładka "Zrealizowane" jako trzecia
-kat_list = ["Zadania bieżące", "Zadania zrealizowane", "Zrealizowane", "Terminy Sławka", "🔴 CZAT"]
+kat_list = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "🔴 CZAT"]
 tabs = st.tabs(kat_list)
 
 for i, kat in enumerate(kat_list[:-1]):
@@ -157,11 +158,13 @@ for i, kat in enumerate(kat_list[:-1]):
         if not df.empty:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
             
-            # WYŚRODKOWANE METRYKI I NOWA NAZWA
-            m1, m2, m3 = st.columns(3)
+            # CZTERY KAFELKI W JEDNYM RZĘDZIE (WYŚRODKOWANE)
+            m1, m2, m3, m4 = st.columns(4)
             m1.metric("📋 Razem", len(df))
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
-            m3.metric("🕒 Ostatnia aktualizacja", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
+            # Nowy kafelek "Zrealizowane" (zlicza wiersze z zakładki Zadania zrealizowane)
+            m3.metric("✅ Zrealizowane", len(df_zrealizowane))
+            m4.metric("🕒 Ostatnia aktualizacja", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
             
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
             edytowane = st.data_editor(df, use_container_width=True, hide_index=True, height=750, key=f"ed_{kat}")
