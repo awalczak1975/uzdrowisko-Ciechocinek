@@ -19,10 +19,26 @@ st.markdown("""
     <style>
     .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
-    .logo-container { text-align: center; margin-top: -35px !important; margin-bottom: 15px !important; }
+    
+    .logo-container { text-align: center; margin-top: -35px !important; margin-bottom: 10px !important; }
     .logo-container img { width: 190px; cursor: pointer; }
-    .sidebar-divider { border-top: 1px solid #334155; margin: 5px 0; }
+
+    /* SEPARATORY I NAGŁÓWKI */
+    .sidebar-divider { border-top: 1px solid #334155; margin: 8px 0; }
     .sidebar-header { color: #eab308; font-size: 0.8rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
+
+    /* --- NOWA WIDOCZNOŚĆ ZALOGOWANEGO UŻYTKOWNIKA --- */
+    .user-badge {
+        background-color: #eab308;
+        color: #1e293b !important;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-weight: 900;
+        font-size: 0.85rem;
+        text-align: center;
+        margin-top: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
 
     /* METRYKI WYŚRODKOWANE */
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }
@@ -33,18 +49,13 @@ st.markdown("""
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; margin-right: 5px; padding: 10px 25px !important; border: 1px solid #cbd5e1 !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
 
-    /* MESSENGER STYLE */
-    .bubble { padding: 10px 15px; border-radius: 18px; max-width: 80%; font-size: 0.9rem; margin-bottom: 5px; }
-    .bubble-mine { background-color: #eab308; color: #1e293b; margin-left: auto; border-bottom-right-radius: 4px; }
-    .bubble-theirs { background-color: #334155; color: white; margin-right: auto; border-bottom-left-radius: 4px; }
-    
-    .term-box { background: #334155; padding: 4px 8px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 3px; color: white; font-size: 0.7rem; }
+    .term-box { background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.72rem; line-height: 1.2; }
     .main-sheet-footer { margin-top: 15px; padding: 5px 15px; background-color: #1e293b; border-top: 3px solid #eab308; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. FUNKCJE TECHNICZNE (STABILNY ODCZYT)
+# 2. FUNKCJE TECHNICZNE
 # ==========================================================
 def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
@@ -56,11 +67,8 @@ def pobierz_df(zakladka):
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
         df = pd.DataFrame(dane[1:], columns=dane[0])
-        # Rygorystyczny filtr kolumny A (usuwa błąd 13500 i zerowanie)
-        df = df[df.iloc[:, 0].astype(str).str.strip() != ""].copy()
-        return df
-    except Exception:
-        return pd.DataFrame()
+        return df[df.iloc[:, 0].astype(str).str.strip() != ""].copy()
+    except: return pd.DataFrame()
 
 def generuj_kalendarz_html(df_zadania):
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
@@ -70,37 +78,36 @@ def generuj_kalendarz_html(df_zadania):
         df_zadania['DT_TMP'] = pd.to_datetime(df_zadania['DEADLINE'], dayfirst=True, errors='coerce')
         dni_z_terminami = df_zadania[df_zadania['DT_TMP'].dt.month == now.month]['DT_TMP'].dt.day.tolist()
 
-    html = f'<div style="background:white; padding:4px; border-radius:8px; border:2px solid #eab308; font-family:sans-serif;"><table style="width:100%; border-collapse:collapse; line-height:1; font-size:10px;"><thead><tr><th colspan="7" style="color:#1e293b; text-align:center; font-weight:800; border-bottom:1px solid #eee; padding-bottom:1px;">{calendar.month_name[now.month].upper()}</th></tr><tr style="color:#64748b; font-size:8px;"><th>PN</th><th>WT</th><th>ŚR</th><th>CZ</th><th>PT</th><th>SO</th><th>ND</th></tr></thead><tbody>'
+    html = f'<div style="background:white; padding:8px; border-radius:8px; border:2px solid #eab308; font-family:sans-serif;"><table style="width:100%; border-collapse:collapse; line-height:1.2; font-size:11px;"><thead><tr><th colspan="7" style="color:#1e293b; text-align:center; font-weight:800; border-bottom:1px solid #eee; padding-bottom:5px; font-size:12px;">{calendar.month_name[now.month].upper()}</th></tr><tr style="color:#64748b; font-size:9px;"><th>PN</th><th>WT</th><th>ŚR</th><th>CZ</th><th>PT</th><th>SO</th><th>ND</th></tr></thead><tbody>'
     for week in cal:
-        html += "<tr>"
+        html += '<tr style="height:22px;">'
         for day in week:
             if day == 0: html += "<td></td>"
             else:
                 bg = "#eab308" if day == now.day else "transparent"
                 color = "#ef4444" if day in dni_z_terminami else "#1e293b"
                 border = "1px solid #ef4444" if day in dni_z_terminami else "none"
-                html += f'<td style="text-align:center; padding:1px; font-weight:700; background-color:{bg}; color:{color}; border:{border}; border-radius:4px;">{day}</td>'
+                html += f'<td style="text-align:center; padding:3px 1px; font-weight:700; background-color:{bg}; color:{color}; border:{border}; border-radius:4px;">{day}</td>'
         html += "</tr>"
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 3. LOGIKA I SIDEBAR
+# 3. LOGIKA I SIDEBAR (NAPRAWIONA WIDOCZNOŚĆ)
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 if u == "Andrzej" and k == "8800": zalogowany = "Andrzej Walczak"
 else: st.error("BŁĄD LOGOWANIA"); st.stop()
 
-# Pobranie danych na starcie (aby uniknąć zerowania)
-df_biez_side = pobierz_df("Zadania bieżące")
-df_zreal_count = pobierz_df("Zadania zrealizowane")
+df_biez = pobierz_df("Zadania bieżące")
 df_chat = pobierz_df("CZAT")
 
 has_new = False
-if not df_chat.empty and 'ODBIORCA' in df_chat.columns and 'STATUS' in df_chat.columns:
+if not df_chat.empty and 'ODBIORCA' in df_chat.columns:
     has_new = not df_chat[(df_chat['ODBIORCA'] == "Andrzej") & (df_chat['STATUS'] == "NIEPRZECZYTANE")].empty
 
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><a href="?u={u}&k={k}" target="_self"><img src="{LOGO_URL}"></a></div>', unsafe_allow_html=True)
+    
     st.markdown('<div class="sidebar-header" style="margin-top:-5px;">🧭 Nawigacja</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
@@ -110,44 +117,40 @@ with st.sidebar:
     
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-header">📅 Kalendarz</div>', unsafe_allow_html=True)
-    st.components.v1.html(generuj_kalendarz_html(df_biez_side), height=140)
+    st.components.v1.html(generuj_kalendarz_html(df_biez), height=175)
     
     st.markdown('<div class="sidebar-divider" style="margin:2px 0;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-header">🕒 Nadchodzące (5)</div>', unsafe_allow_html=True)
-    if not df_biez_side.empty:
-        for _, r in df_biez_side.head(5).iterrows():
+    if not df_biez.empty:
+        for _, r in df_biez.head(5).iterrows():
             st.markdown(f'<div class="term-box"><span style="color:#eab308; font-weight:bold;">{r.get("DEADLINE","")}</span>: {str(r.get("TREŚĆ ZADANIA",""))[:35]}...</div>', unsafe_allow_html=True)
     
-    st.markdown(f'<div class="sidebar-footer">Zalogowany: <b>{zalogowany}</b><br>System Zarządzania &copy; 2025</div>', unsafe_allow_html=True)
+    # --- WIDOCZNA ETYKIETA ZALOGOWANEGO ---
+    st.markdown(f'<div class="user-badge">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
+
     if has_new:
-        st.markdown('<p style="color:#ef4444; font-weight:900; text-align:center; animation: blinker 1.5s linear infinite;">🔔 NOWA WIADOMOŚĆ!</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#ef4444; font-weight:900; text-align:center; animation: blinker 1.5s linear infinite; margin-top:10px;">🔔 NOWA WIADOMOŚĆ!</p>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (STABILNE METRYKI)
+# 4. WIDOK GŁÓWNY (STABILNY)
 # ==========================================================
 chat_tab_label = "💬 CZAT 🔴" if has_new else "💬 CZAT"
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", chat_tab_label])
+
 now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
+df_zrealizowane = pobierz_df("Zadania zrealizowane")
 
 for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
     with tabs[i]:
         df = pobierz_df(kat)
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("📋 Razem", len(df))
-        
         if not df.empty and 'DNI' in df.columns:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
-        else:
-            m2.metric("🔥 Pilne (-2+)", 0)
-            
-        m3.metric("✅ Zrealizowane", len(df_zreal_count))
+        m3.metric("✅ Zrealizowane", len(df_zrealizowane))
         m4.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
-        
         if not df.empty:
             st.data_editor(df, use_container_width=True, hide_index=True, height=550)
-        else:
-            st.info("Oczekiwanie na dane lub brak aktywnych zadań.")
 
-# BELKA DOLNA
 st.markdown(f'<div class="main-sheet-footer"><div style="color:#eab308; font-weight:800; font-size:0.8rem;">UZDROWISKO CIECHOCINEK S.A.</div><div>{now_pl.strftime("%d.%m.%Y | %H:%M:%S")}</div></div>', unsafe_allow_html=True)
