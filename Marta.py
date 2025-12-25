@@ -15,33 +15,37 @@ st_autorefresh(interval=30000, key="globalrefresh")
 
 # Poprawiony link do logo na GitHub (Raw)
 LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20%281%29.png"
+# Link powrotny (URL Twojej aplikacji)
+APP_URL = "https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u=Andrzej&k=8800"
 
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
-    /* STYLIZACJA LOGO-PRZYCISKU - usuwamy obramowania i tło, by logo wyglądało naturalnie */
-    div.stButton > button[key="logo_home"] {
-        background-color: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-        width: 200px !important;
-        height: auto !important;
-        margin-top: -40px !important;
-        margin-bottom: 10px !important;
+    /* STYLIZACJA LOGO - BEZPOŚREDNI LINK HTML */
+    .logo-container {
+        text-align: center;
+        margin-top: -30px !important;
+        margin-bottom: 20px !important;
+        cursor: pointer;
     }
-    div.stButton > button[key="logo_home"]:hover { background-color: transparent !important; border: none !important; }
-    div.stButton > button[key="logo_home"]:active { background-color: transparent !important; border: none !important; }
+    .logo-container img {
+        width: 200px;
+        transition: 0.3s;
+    }
+    .logo-container img:hover {
+        transform: scale(1.02);
+    }
 
     /* PRZYCISKI W PANELU */
-    [data-testid="stSidebar"] div.stButton > button:not([key="logo_home"]) {
+    [data-testid="stSidebar"] div.stButton > button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; font-weight: 600 !important;
         height: 46px !important; margin-bottom: 5px !important;
     }
 
-    /* ZAKŁADKI (TABS) - POPRAWIONA WIDOCZNOŚĆ */
+    /* ZAKŁADKI (TABS) */
     button[data-baseweb="tab"] {
         font-size: 1.1rem !important; font-weight: 700 !important;
         color: #1e293b !important; background-color: #e2e8f0 !important;
@@ -77,12 +81,13 @@ def pobierz_df(zakladka):
         return df[df.iloc[:, 0].str.strip() != ""]
     except: return pd.DataFrame()
 
-# Funkcja resetująca widok (wywoływana przez logo)
-def powrot_do_domu():
-    st.cache_data.clear()
-    # Streamlit nie pozwala na bezpośrednią zmianę indexu tabs, 
-    # ale rerun zresetuje aplikację do domyślnej pierwszej zakładki.
-    st.rerun()
+def zapisz_df(df, zakladka):
+    try:
+        ws = polacz().open("Marta-Dział Techniczny").worksheet(zakladka)
+        ws.clear()
+        ws.update([df.columns.tolist()] + df.values.tolist())
+        return True
+    except: return False
 
 def generuj_kalendarz_html(df_zadania):
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
@@ -119,11 +124,14 @@ df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    # --- LOGO JAKO PRZYCISK RESETUJĄCY ---
-    # Używamy HTML wewnątrz przycisku, aby wyświetlić obrazek logo
-    logo_html = f'<img src="{LOGO_URL}" width="200">'
-    if st.button(logo_html, key="logo_home", on_click=powrot_do_domu):
-        pass # Akcja wykonuje się w powrot_do_domu()
+    # --- NAPRAWIONE LOGO JAKO LINK ---
+    st.markdown(f"""
+        <div class="logo-container">
+            <a href="{APP_URL}" target="_self">
+                <img src="{LOGO_URL}">
+            </a>
+        </div>
+    """, unsafe_allow_html=True)
 
     st.markdown('<div style="border-bottom:1px solid #334155; margin:5px 0 10px 0;"></div>', unsafe_allow_html=True)
     
@@ -156,4 +164,9 @@ for i, kat in enumerate(kat_list[:-1]):
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
             m3.metric("🕒 Godzina", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
-            st.data_editor(df, use_container_width=True, hide_index=True, height=750, key=f"ed_{kat}")
+            
+            edytowane = st.data_editor(df, use_container_width=True, hide_index=True, height=750, key=f"ed_{kat}")
+            
+            if st.button(f"💾 ZAPISZ ZMIANY: {kat.upper()}", key=f"btn_{kat}"):
+                if zapisz_df(edytowane.drop(columns=["S", "DNI_N"]), kat):
+                    st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
