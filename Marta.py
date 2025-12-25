@@ -70,21 +70,59 @@ def aktualizuj_arkusz(df_nowy, nazwa_zakladki):
         return False
 
 # ==========================================================
-# 5. STYLIZACJA CSS
+# 5. STYLIZACJA CSS (KLUCZOWA DLA WYGLĄDU NAGŁÓWKA)
 # ==========================================================
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
+    
+    /* Główne przyciski systemowe */
     div.stButton > button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; font-size: 0.85rem !important;
         font-weight: 600 !important; width: 100% !important; height: 50px !important;
     }
-    [data-testid="stMetric"] { 
-        background-color: white !important; border-top: 4px solid #eab308 !important; 
-        border-radius: 8px !important; padding: 15px !important; text-align: center !important; 
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+    /* Stylizacja paska nawigacyjnego a'la WWW */
+    .nav-bar {
+        display: flex;
+        justify-content: center;
+        background-color: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        margin-top: 30px;
+    }
+    .nav-item {
+        flex: 1;
+        text-align: center;
+        padding: 20px 10px;
+        text-decoration: none !important;
+        color: #475569 !important;
+        font-weight: 700;
+        font-size: 0.85rem;
+        border-right: 1px solid #f1f5f9;
+        transition: background-color 0.3s, color 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .nav-item:hover {
+        background-color: #f8fafc;
+        color: #0ea5e9 !important;
+    }
+    .nav-item:last-child { border-right: none; }
+    
+    /* Ikona domku na początku */
+    .nav-home {
+        background-color: #f8fafc;
+        flex: 0.4;
+        color: #0ea5e9 !important;
+        font-size: 1.2rem;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -120,7 +158,6 @@ with st.sidebar:
 # ==========================================================
 if 'widok' not in st.session_state: st.session_state['widok'] = 'biezace'
 
-# Nawigacja górna
 cols = st.columns(3) if czy_andrzej else st.columns([1, 1, 0.01])
 if cols[0].button("📋 BIEŻĄCE", use_container_width=True): st.session_state['widok'] = 'biezace'
 if cols[1].button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
@@ -131,7 +168,6 @@ zakladka_aktualna = mapa[st.session_state['widok']]
 df = pobierz_dane_final(zakladka_aktualna)
 
 if not df.empty:
-    # Przygotowanie Danych
     kol_data = "DEADLINE" if "DEADLINE" in df.columns else "TERMIN"
     if kol_data in df.columns:
         df['tmp'] = pd.to_datetime(df[kol_data], dayfirst=True, errors='coerce')
@@ -146,33 +182,32 @@ if not df.empty:
     m2.metric("🔥 Pilne", len(df[df['DNI_N'] >= -2]) if 'DNI_N' in df.columns else "0")
     m3.metric("🕒 Godzina", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
 
-    # TABELA
+    # Tabela
     edytowane_df = st.data_editor(
-        df, use_container_width=True, hide_index=True, height=400, 
+        df, use_container_width=True, hide_index=True, height=450, 
         disabled=not czy_admin, key=f"ed_{st.session_state['widok']}",
         column_config={"DNI_N": None, "S": st.column_config.TextColumn(" ", width="small")}
     )
 
-    # PRZYCISK ZAPISU - teraz bardziej widoczny
     if czy_admin:
-        st.write("")
         if st.button("💾 ZAPISZ ZMIANY W ARKUSZU", use_container_width=True, type="primary"):
             if aktualizuj_arkusz(edytowane_df.drop(columns=["S", "DNI_N"]), zakladka_aktualna):
-                st.success("Zapisano pomyślnie!"); st.cache_data.clear(); st.rerun()
-            else: st.error("Błąd połączenia z Google Sheets")
+                st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
 
 # ==========================================================
-# 8. MENU DOLNE (AKTYWNE LINKI)
+# 8. NOWY NAGŁÓWEK GRAFICZNY (BELKA WWW)
 # ==========================================================
-st.markdown("---")
-st.markdown("### 🌐 SZYBKI DOSTĘP: UZDROWISKOCIECHOCINEK.PL")
-m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
-with m1: st.link_button("🏠 OFERTA", "https://uzdrowiskociechocinek.pl/oferta/")
-with m2: st.link_button("🏨 SANATORIA", "https://uzdrowiskociechocinek.pl/sanatoria/")
-with m3: st.link_button("⛲ TĘŻNIE", "https://uzdrowiskociechocinek.pl/teznia-i-inne-atrakcje/")
-with m4: st.link_button("👥 O NAS", "https://uzdrowiskociechocinek.pl/o-uzdrowisku/")
-with m5: st.link_button("💆 ZABIEGI", "https://uzdrowiskociechocinek.pl/zabiegi/")
-with m6: st.link_button("🛒 SKLEP", "https://uzdrowiskociechocinek.pl/produkty-zdrojowe/")
-with m7: st.link_button("📞 KONTAKT", "https://uzdrowiskociechocinek.pl/kontakt/")
+st.markdown("""
+    <div class="nav-bar">
+        <a class="nav-item nav-home" href="https://uzdrowiskociechocinek.pl/">🏠</a>
+        <a class="nav-item" href="https://uzdrowiskociechocinek.pl/oferta/">Oferta</a>
+        <a class="nav-item" href="https://uzdrowiskociechocinek.pl/sanatoria/">Sanatoria</a>
+        <a class="nav-item" href="https://uzdrowiskociechocinek.pl/teznia-i-inne-atrakcje/">Tężnie i inne atrakcje</a>
+        <a class="nav-item" href="https://uzdrowiskociechocinek.pl/o-uzdrowisku/">O uzdrowisku</a>
+        <a class="nav-item" href="https://uzdrowiskociechocinek.pl/zabiegi/">Zabiegi</a>
+        <a class="nav-item" href="https://uzdrowiskociechocinek.pl/produkty-zdrojowe/">Produkty zdrojowe</a>
+        <a class="nav-item" href="https://uzdrowiskociechocinek.pl/kontakt/">Kontakt</a>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.markdown(f"<div style='text-align:center; color:grey; font-size: 0.8rem; margin-top:20px;'>System Zarządzania Uzdrowisko Ciechocinek S.A. | {datetime.now().year}</div>", unsafe_allow_html=True)
+st.markdown(f"<div style='text-align:center; color:#94a3b8; font-size: 0.75rem; margin-top:25px;'>Panel Dyrekcyjny © 2025 Uzdrowisko Ciechocinek S.A.</div>", unsafe_allow_html=True)
