@@ -8,42 +8,56 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA
+# 1. KONFIGURACJA I STYLIZACJA (CZYTELNOŚĆ I KONTRAST)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
 
-# Inicjalizacja stanu dla wybranej daty (jeśli nie istnieje)
+# Inicjalizacja stanu dla klikniętego dnia
 if 'day_click' not in st.session_state:
     st.session_state.day_click = datetime.now(pytz.timezone('Europe/Warsaw')).day
 
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem !important; }
-    [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
-    /* Stylizacja przycisków w kalendarzu - białe i czytelne */
-    div[data-testid="column"] button {
-        padding: 0px !important;
-        height: 32px !important;
-        width: 100% !important;
-        font-size: 0.8rem !important;
-        background-color: white !important;
-        color: #1e293b !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 4px !important;
+    /* LEWY PANEL BOCZNY */
+    [data-testid="stSidebar"] { 
+        background-color: #1e293b !important; 
+        border-right: 5px solid #eab308 !important; 
     }
     
-    /* Aktywna zakładka nad tabelą */
+    /* POWIĘKSZONE PRZYCISKI W PANELU */
+    [data-testid="stSidebar"] div.stButton > button {
+        background-color: #334155 !important; color: white !important;
+        border: 1px solid #94a3b8 !important; font-weight: 600 !important;
+        height: 46px !important; margin-bottom: 8px !important;
+        font-size: 0.9rem !important;
+    }
+
+    /* AKTYWNA ZAKŁADKA - KOLOR LEWEGO PANELU */
+    button[data-baseweb="tab"] {
+        font-size: 1.1rem !important; font-weight: 700 !important;
+        color: #475569 !important; background-color: #f1f5f9 !important;
+        border-radius: 8px 8px 0 0 !important; margin-right: 5px !important;
+        padding: 10px 25px !important; border: 1px solid #e2e8f0 !important;
+    }
     button[data-baseweb="tab"][aria-selected="true"] {
         color: white !important;
         background-color: #1e293b !important; 
         border-bottom: 4px solid #eab308 !important; 
     }
 
-    /* Wyśrodkowanie metryk */
-    [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; }
-    [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; }
+    /* KAFELKI PODSUMOWANIA */
+    [data-testid="stMetric"] { 
+        background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
+        border-radius: 10px !important; text-align: center !important; 
+    }
+    [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }
+    [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
+
+    /* INFO O UŻYTKOWNIKU NA DOLE */
+    .sidebar-footer { position: fixed; bottom: 10px; width: 240px; text-align: center; color: #94a3b8; font-size: 0.75rem; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -66,12 +80,46 @@ def pobierz_df(zakladka):
         return df[df.iloc[:, 0].str.strip() != ""]
     except: return pd.DataFrame()
 
-# Funkcja obsługująca kliknięcie dnia
-def ustaw_dzien(dzien):
-    st.session_state.day_click = dzien
+def generuj_kalendarz_html(df_zadania):
+    now = datetime.now(pytz.timezone('Europe/Warsaw'))
+    rok, miesiac = now.year, now.month
+    cal = calendar.monthcalendar(rok, miesiac)
+    
+    pilne_daty = []
+    if not df_zadania.empty:
+        df_zadania['DT'] = pd.to_datetime(df_zadania['DEADLINE'], dayfirst=True, errors='coerce')
+        df_zadania['DNI_N'] = pd.to_numeric(df_zadania['DNI'], errors='coerce').fillna(-999)
+        mask = (df_zadania['DT'].dt.month == miesiac) & (df_zadania['DT'].dt.year == rok) & (df_zadania['DNI_N'] >= -2)
+        pilne_daty = df_zadania[mask]['DT'].dt.day.unique().tolist()
+
+    html = f"""
+    <div style="background-color: white; padding: 10px; border-radius: 10px; border: 2px solid #eab308; font-family: sans-serif;">
+        <table style="width: 100%; border-collapse: collapse; line-height: 1.1;">
+            <thead>
+                <tr><th colspan="7" style="color: #1e293b; text-align: center; font-weight: 800; font-size: 13px; padding-bottom: 5px; border-bottom: 1px solid #eee;">{calendar.month_name[miesiac].upper()} {rok}</th></tr>
+                <tr style="color: #64748b; font-size: 9px; text-align: center; font-weight: bold;">
+                    <th style="padding: 2px 0;">PN</th><th style="padding: 2px 0;">WT</th><th style="padding: 2px 0;">ŚR</th><th style="padding: 2px 0;">CZ</th><th style="padding: 2px 0;">PT</th><th style="padding: 2px 0;">SO</th><th style="padding: 2px 0;">ND</th>
+                </tr>
+            </thead>
+            <tbody style="color: #1e293b;">
+    """
+    for week in cal:
+        html += "<tr>"
+        for day in week:
+            if day == 0:
+                html += "<td></td>"
+            else:
+                bg = "transparent"; color = "#1e293b"; border = "none"
+                if day == now.day: bg = "#eab308"
+                if day in pilne_daty:
+                    color = "#ef4444"; border = "1px solid #ef4444"
+                html += f'<td style="text-align: center; padding: 4px 1px; font-size: 11px; font-weight: 700; color: {color}; background-color: {bg}; border-radius: 4px; border: {border};">{day}</td>'
+        html += "</tr>"
+    html += "</tbody></table></div>"
+    return html
 
 # ==========================================================
-# 3. SIDEBAR - INTERAKTYWNY KALENDARZ
+# 3. LOGIKA SIDEBARU
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 if u == "Andrzej" and k == "8800": zalogowany = u
@@ -82,55 +130,41 @@ df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    st.markdown('<div style="text-align:center;"><div style="color:#eab308; font-size: 24px; font-weight: 900;">UZDROWISKO</div><div style="color:#0ea5e9; font-size: 16px; font-weight: 700; letter-spacing: 2px;">CIECHOCINEK</div></div>', unsafe_allow_html=True)
+    st.markdown("""
+        <div style="text-align:center; padding-bottom: 5px;">
+            <div style="color:#eab308; font-size: 22px; font-weight: 900; line-height: 0.8;">UZDROWISKO</div>
+            <div style="color:#0ea5e9; font-size: 14px; font-weight: 700; letter-spacing: 2px;">CIECHOCINEK</div>
+        </div>
+    """, unsafe_allow_html=True)
+    
     st.divider()
     
-    if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): st.info("Dodaj w Arkuszu Google.")
+    if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): st.info("Dodaj zadanie w Arkuszu Google.")
     if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True): st.cache_data.clear(); st.rerun()
-
-    # --- KONSTRUKCJA KALENDARZA ---
-    now = datetime.now(pytz.timezone('Europe/Warsaw'))
-    rok, miesiac = now.year, now.month
     
-    st.markdown(f'<div style="color:white; text-align:center; font-weight:bold;">{calendar.month_name[miesiac].upper()} {rok}</div>', unsafe_allow_html=True)
+    # POWRÓT DO GRAFICZNEGO KALENDARZA (BIAŁA KARTA)
+    st.components.v1.html(generuj_kalendarz_html(df_total), height=195)
     
-    # Nagłówki
-    cols_h = st.columns(7)
-    days_names = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"]
-    for i, d in enumerate(days_names): cols_h[i].markdown(f"<center><small style='color:#94a3b8'>{d}</small></center>", unsafe_allow_html=True)
-
-    # Budowanie siatki z callbackiem (to zapewnia działanie!)
-    cal_obj = calendar.Calendar(firstweekday=0)
-    for week in cal_obj.monthdayscalendar(rok, miesiac):
-        cols = st.columns(7)
-        for i, day in enumerate(week):
-            if day != 0:
-                # Sprawdzenie czy w tym dniu są terminy
-                df_total['DT'] = pd.to_datetime(df_total['DEADLINE'], dayfirst=True, errors='coerce')
-                df_total['DNI_N'] = pd.to_numeric(df_total['DNI'], errors='coerce').fillna(-999)
-                ma_termin = day in df_total[df_total['DNI_N'] >= -2]['DT'].dt.day.unique().tolist()
-                
-                label = f"{day}🔴" if ma_termin else str(day)
-                if day == now.day: label = f"⭐{day}"
-                
-                # Kliknięcie wywołuje funkcję ustaw_dzien
-                cols[i].button(label, key=f"btn_{day}", on_click=ustaw_dzien, args=(day,))
-            else:
-                cols[i].empty()
-
-    st.divider()
+    # LISTA ZADAŃ POD KALENDARZEM (POPRAWIONA KOLORYSTYKA)
+    st.markdown("<p style='color:white; font-weight:bold; margin-bottom:5px;'>📅 Nadchodzące terminy:</p>", unsafe_allow_html=True)
+    df_total['DT'] = pd.to_datetime(df_total['DEADLINE'], dayfirst=True, errors='coerce')
+    df_total['DNI_N'] = pd.to_numeric(df_total['DNI'], errors='coerce').fillna(-999)
     
-    # WYŚWIETLANIE ZADAŃ DLA WYBRANEJ DATY (reaguje na st.session_state.day_click)
-    st.markdown(f"📅 **Zadania: {st.session_state.day_click}.{miesiac}**")
-    wybrana_data_dt = datetime(rok, miesiac, st.session_state.day_click).date()
-    zadania_dnia = df_total[df_total['DT'].dt.date == wybrana_data_dt]
+    # Filtrowanie tylko zadań pilnych i spóźnionych
+    nadchodzace = df_total[df_total['DNI_N'] >= -2].sort_values(by='DT').head(4)
     
-    if not zadania_dnia.empty:
-        for _, r in zadania_dnia.iterrows():
-            emoji = "🚨" if r['DNI_N'] >= -2 else "✅"
-            st.markdown(f"<div style='background:#334155; padding:5px; border-radius:5px; margin-bottom:5px; border-left:3px solid #eab308;'><small>{emoji} {r['TREŚĆ ZADANIA']}</small></div>", unsafe_allow_html=True)
+    if not nadchodzace.empty:
+        for _, r in nadchodzace.iterrows():
+            st.markdown(f"""
+                <div style='background-color:#334155; padding:8px; border-radius:8px; border-left:4px solid #ef4444; margin-bottom:6px;'>
+                    <p style='color:#e2e8f0; font-size:0.8rem; margin:0;'><b>{r['DEADLINE']}</b></p>
+                    <p style='color:white; font-size:0.85rem; margin:0;'>{r['TREŚĆ ZADANIA']}</p>
+                </div>
+            """, unsafe_allow_html=True)
     else:
-        st.caption("Brak zadań na ten dzień.")
+        st.markdown("<p style='color:#94a3b8; font-size:0.8rem;'>Brak pilnych zadań.</p>", unsafe_allow_html=True)
+
+    st.markdown(f'<div class="sidebar-footer">Zalogowany: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
 
 # ==========================================================
 # 4. WIDOK GŁÓWNY (ZAKŁADKI)
