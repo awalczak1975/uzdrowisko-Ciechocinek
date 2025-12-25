@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (WYŚRODKOWANIE I STABILNOŚĆ)
+# 1. KONFIGURACJA I STYLIZACJA (STABILNOŚĆ 15.0)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -55,7 +55,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. DANE I LOGOWANIE
+# 2. LOGOWANIE I POŁĄCZENIE
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -74,7 +74,6 @@ def pobierz_arkusz(nazwa):
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
         df = pd.DataFrame(dane[1:], columns=dane[0])
-        # Filtracja pustych wierszy
         if 'TREŚĆ ZADANIA' in df.columns:
             df = df[df['TREŚĆ ZADANIA'].str.strip() != ""].copy()
         return df
@@ -152,7 +151,7 @@ for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy
         else:
             st.info(f"Brak zadań w arkuszu: {nazwa}")
 
-# --- SEKCJA CZATU Z ZABEZPIECZENIEM PRZED BŁĘDEM (ZDJĘCIE NR 10) ---
+# --- SEKCJA CZATU Z ZABEZPIECZENIEM PRZED BŁĘDEM (ZDJĘCIE NR 10, 11, 12) ---
 with tabs[3]:
     st.subheader("💬 Komunikator firmowy")
     try:
@@ -177,6 +176,6 @@ with tabs[3]:
                     ws_chat.append_row([now_pl.strftime("%Y-%m-%d %H:%M"), zalogowany, target, msg_text, "NIEPRZECZYTANE"])
                     st.cache_data.clear(); st.rerun()
     except:
-        st.error("BŁĄD: Nie znaleziono zakładki 'CZAT' w arkuszu Google. Utwórz ją, aby komunikator działał.")
+        st.error("BŁĄD: Nie znaleziono zakładki 'CZAT' w arkuszu Google. Utwórz ją (dużymi literami), aby komunikator działał.")
 
 st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now_pl.strftime("%d.%m.%Y | %H:%M")}</span></div>', unsafe_allow_html=True)
