@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (POWIĘKSZONE KAFELKI)
+# 1. KONFIGURACJA I STYLIZACJA (WYDŁUŻONY KALENDARZ)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -34,9 +34,22 @@ st.markdown("""
         border: 2px solid white;
     }
 
-    .cal-container { background: white; padding: 5px; border-radius: 8px; border: 2px solid #eab308; width: 100%; }
+    /* WYDŁUŻONY KALENDARZ (+3mm) */
+    .cal-container { 
+        background: white; 
+        padding: 8px; 
+        border-radius: 8px; 
+        border: 2px solid #eab308; 
+        width: 100%;
+        margin-bottom: 15px; /* Dodatkowy margines dolny */
+    }
     .cal-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 10px; color: #1e293b; }
-    .cal-table td { text-align: center; padding: 1px; font-weight: 700; border-radius: 3px; }
+    .cal-table td { 
+        text-align: center; 
+        padding: 4px 1px; /* Zwiększono padding pionowy dla efektu +3mm wysokości */
+        font-weight: 700; 
+        border-radius: 3px; 
+    }
     .day-today { background-color: #eab308 !important; }
     .day-task { color: #ef4444 !important; border: 1px solid #ef4444 !important; }
 
@@ -47,17 +60,15 @@ st.markdown("""
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 25px !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
     
-    /* POWIĘKSZONE KAFELKI ZADAŃ (+2mm wysokości/dopełnienia) */
     .term-box { 
         background: #334155; 
-        padding: 12px 10px; /* Zwiększono z 6px na 12px dla efektu +2mm */
+        padding: 12px 10px; 
         border-radius: 6px; 
         border-left: 4px solid #ef4444; 
-        margin-bottom: 12px; /* Zwiększono odstęp między zadaniami */
+        margin-bottom: 12px; 
         color: white; 
         font-size: 0.75rem; 
     }
-    
     .sidebar-header { color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 10px; }
     </style>
     """, unsafe_allow_html=True)
@@ -119,7 +130,6 @@ with st.sidebar:
         html_cal += '</tr>'
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
 
-    # SEKCJA POWIĘKSZONYCH ZADAŃ
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_biez.empty:
         df_side = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
