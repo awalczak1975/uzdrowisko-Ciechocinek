@@ -55,23 +55,22 @@ def generuj_kalendarz_html(df_zadania):
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     
-    # Wyciąganie dni z terminami z arkusza
     dni_z_terminami = []
     if not df_zadania.empty and 'DEADLINE' in df_zadania.columns:
         df_zadania['DT_TMP'] = pd.to_datetime(df_zadania['DEADLINE'], dayfirst=True, errors='coerce')
         dni_z_terminami = df_zadania[df_zadania['DT_TMP'].dt.month == now.month]['DT_TMP'].dt.day.tolist()
 
-    html = f'<div style="background:white; padding:4px; border-radius:8px; border:2px solid #eab308; font-family:sans-serif;"><table style="width:100%; border-collapse:collapse; line-height:1; font-size:10px;"><thead><tr><th colspan="7" style="color:#1e293b; text-align:center; font-weight:800; border-bottom:1px solid #eee; padding-bottom:1px;">{calendar.month_name[now.month].upper()}</th></tr><tr style="color:#64748b; font-size:8px;"><th>PN</th><th>WT</th><th>ŚR</th><th>CZ</th><th>PT</th><th>SO</th><th>ND</th></tr></thead><tbody>'
+    # Zwiększono padding (z 4px na 8px) i line-height dla uzyskania większej wysokości
+    html = f'<div style="background:white; padding:8px; border-radius:8px; border:2px solid #eab308; font-family:sans-serif;"><table style="width:100%; border-collapse:collapse; line-height:1.2; font-size:11px;"><thead><tr><th colspan="7" style="color:#1e293b; text-align:center; font-weight:800; border-bottom:1px solid #eee; padding-bottom:5px; font-size:12px;">{calendar.month_name[now.month].upper()}</th></tr><tr style="color:#64748b; font-size:9px; text-align:center; height:20px;"><th>PN</th><th>WT</th><th>ŚR</th><th>CZ</th><th>PT</th><th>SO</th><th>ND</th></tr></thead><tbody>'
     for week in cal:
-        html += "<tr>"
+        html += '<tr style="height:22px;">' # Zwiększono wysokość wiersza
         for day in week:
             if day == 0: html += "<td></td>"
             else:
                 bg = "#eab308" if day == now.day else "transparent"
-                # Jeśli dzień ma termin w arkuszu, kolorujemy numer na czerwono i dodajemy obramowanie
                 color = "#ef4444" if day in dni_z_terminami else "#1e293b"
                 border = "1px solid #ef4444" if day in dni_z_terminami else "none"
-                html += f'<td style="text-align:center; padding:1px; font-weight:700; background-color:{bg}; color:{color}; border:{border}; border-radius:4px;">{day}</td>'
+                html += f'<td style="text-align:center; padding:3px 1px; font-weight:700; background-color:{bg}; color:{color}; border:{border}; border-radius:4px;">{day}</td>'
         html += "</tr>"
     return html + "</tbody></table></div>"
 
@@ -97,8 +96,8 @@ with st.sidebar:
     
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-header">📅 Kalendarz</div>', unsafe_allow_html=True)
-    # PRZEKAZUJEMY DF DO KALENDARZA ABY ZAZNACZYŁ TERMINY
-    st.components.v1.html(generuj_kalendarz_html(df_biez_wszystkie), height=125)
+    # Zwiększono height komponentu z 125 na 175 (ok. 0.5 cm więcej przestrzeni)
+    st.components.v1.html(generuj_kalendarz_html(df_biez_wszystkie), height=175)
     
     st.markdown('<div class="sidebar-divider" style="margin:2px 0;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-header">🕒 Nadchodzące (5)</div>', unsafe_allow_html=True)
