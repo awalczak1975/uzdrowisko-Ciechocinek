@@ -8,12 +8,12 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA LINKU DO LOGO)
+# 1. KONFIGURACJA I STYLIZACJA (DODATKOWY ODSTĘP POD LOGO)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
 
-# BEZPIECZNY LINK (z zakodowanymi spacjami)
+# Poprawiony, bezpośredni link do pliku na GitHub (Raw)
 LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20%281%29.png"
 
 st.markdown("""
@@ -29,11 +29,16 @@ st.markdown("""
     /* STYLIZACJA LOGO */
     .logo-box {
         text-align: center;
-        margin-top: -45px !important;
-        margin-bottom: -15px !important;
+        margin-top: -30px !important;
+        margin-bottom: 20px !important; /* Odstęp pod logo */
     }
 
-    /* PRZYCISKI */
+    /* KONTENER PRZYCISKÓW - OBNIŻENIE O 0.5 CM */
+    .button-container {
+        margin-top: 15px !important; /* Dodatkowe 15px odstępu (~0.5cm) */
+    }
+
+    /* PRZYCISKI W PANELU */
     [data-testid="stSidebar"] div.stButton > button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; font-weight: 600 !important;
@@ -47,7 +52,16 @@ st.markdown("""
         border-bottom: 4px solid #eab308 !important; 
     }
 
-    /* STOPKA */
+    /* METRYKI PODSUMOWANIA */
+    [data-testid="stMetric"] { 
+        background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
+        border-radius: 10px !important; text-align: center !important; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; }
+    [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; }
+
+    /* STOPKA NA DOLE */
     .sidebar-footer { position: fixed; bottom: 10px; width: 240px; text-align: center; color: #94a3b8; font-size: 0.75rem; }
     </style>
     """, unsafe_allow_html=True)
@@ -127,10 +141,11 @@ df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    # WSTAWIANIE LOGO PRZEZ HTML (bezpieczny link)
+    # WSTAWIANIE LOGO
     st.markdown(f'<div class="logo-box"><img src="{LOGO_URL}" width="200"></div>', unsafe_allow_html=True)
     
-    st.markdown('<div style="border-bottom: 1px solid #334155; margin: 5px 0 10px 0;"></div>', unsafe_allow_html=True)
+    # KONTENER PRZYCISKÓW Z DODATKOWYM ODSTĘPEM (0.5 CM)
+    st.markdown('<div class="button-container"></div>', unsafe_allow_html=True)
     
     if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): st.info("Dodaj zadanie w Arkuszu.")
     if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True): st.cache_data.clear(); st.rerun()
