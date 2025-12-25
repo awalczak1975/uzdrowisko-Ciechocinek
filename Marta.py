@@ -57,6 +57,22 @@ def pobierz_dane_final(nazwa_zakladki):
     except:
         return pd.DataFrame()
 
+def aktualizuj_arkusz(df_nowy, nazwa_zakladki):
+    try:
+        client = polacz_z_google()
+        ws = client.open(NAZWA_ARKUSZA).worksheet(nazwa_zakladki)
+        # Przygotowanie danych do zapisu (nagłówki + wartości)
+        naglowki = df_nowy.columns.tolist()
+        wartosci = df_nowy.values.tolist()
+        dane_do_zapisu = [naglowki] + wartosci
+        # Wyczyszczenie i aktualizacja
+        ws.clear()
+        ws.update("A1", dane_do_zapisu)
+        return True
+    except Exception as e:
+        st.error(f"Błąd zapisu: {e}")
+        return False
+
 # ==========================================================
 # 5. STYLIZACJA CSS
 # ==========================================================
@@ -132,17 +148,14 @@ if not df.empty:
         df['tmp'] = pd.to_datetime(df[kol_data], dayfirst=True, errors='coerce')
         df = df.sort_values(by='tmp', ascending=True).drop(columns=['tmp'])
 
-    # 2. Logika ikon - TYLKO GRAFIKA
+    # 2. Logika ikon (S) i pomocnicza (DNI_N)
     if 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
-        
-        def przypisz_grafike(dni):
+        def przypisz_ikone(dni):
             if dni == -999: return "⚪"
-            if dni >= -2: return "🚨" # Sama ikona alarmu dla -2 i spóźnień
-            return "✅" # Sama ikona OK dla reszty
-        
-        # Tworzymy kolumnę z samą grafiką
-        df.insert(0, "S", df['DNI_N'].apply(przypisz_grafike))
+            if dni >= -2: return "🚨"
+            return "✅"
+        df.insert(0, "S", df['DNI_N'].apply(przypisz_ikone))
 
     # 3. Metryki
     m1, m2, m3 = st.columns(3)
@@ -156,19 +169,30 @@ if not df.empty:
     godzina_pl = datetime.now(tz_warszawa).strftime("%H:%M")
     m3.metric("🕒 Godzina", godzina_pl)
 
-    # 4. Wyświetlanie tabeli - Minimalistyczna pierwsza kolumna
-    st.data_editor(
+    # 4. Tabela edytowalna
+    edytowane_df = st.data_editor(
         df, 
         use_container_width=True, 
         hide_index=True, 
         height=600, 
         disabled=not czy_admin,
+        key="editor",
         column_config={
             "DNI_N": None, 
-            "S": st.column_config.TextColumn(" ", width="small"), # Kolumna z ikoną bez nagłówka tekstowego
-            "TREŚĆ": st.column_config.TextColumn("TREŚĆ", width="large"),
-            "DNI": st.column_config.TextColumn("DNI", width="small")
+            "S": st.column_config.TextColumn(" ", width="small"),
+            "TREŚĆ": st.column_config.TextColumn("TREŚĆ", width="large")
         }
     )
+
+    # 5. Przycisk zapisu
+    if czy_admin:
+        st.divider()
+        if st.button("💾 ZAPISZ ZMIANY W ARKUSZU", use_container_width=True):
+            # Usuwamy kolumny wizualne przed wysłaniem do Google Sheets
+            df_final = edytowane_df.drop(columns=["S", "DNI_N"])
+            if aktualizuj_arkusz(df_final, zakladka_aktualna):
+                st.success("Dane zapisane pomyślnie!")
+                st.cache_data.clear()
+                st.rerun()
 else:
-    st.info("Brak zadań w tej sekcji.")
+    st.info("Brak zadań.")
