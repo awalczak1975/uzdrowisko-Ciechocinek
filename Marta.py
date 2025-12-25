@@ -66,10 +66,8 @@ def pobierz_dane(zakladka):
     try:
         client = polacz_z_google()
         sheet = client.open(NAZWA_ARKUSZA).worksheet(zakladka)
-        # POBIERANIE TYLKO KOLUMN A:E (Pierwsze 5 kolumn)
         dane = sheet.get('A1:E500') 
         if not dane: return pd.DataFrame()
-        # Tworzenie DataFrame: nagłówki z pierwszego wiersza, dane z reszty
         return pd.DataFrame(dane[1:], columns=dane[0])
     except:
         return pd.DataFrame()
@@ -151,31 +149,41 @@ zakladka_nazwa = "Zadania bieżące" if st.session_state['widok'] == 'biezace' e
 df = pobierz_dane(zakladka_nazwa)
 
 if not df.empty:
-    # Liczenie zadań na podstawie kolumny A (usuwanie pustych z Sheets)
     df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
 
-    # Filtrowanie uprawnień (Rafał i Agata widzą wszystko oprócz Sławka)
     if not czy_admin:
         if zalogowany_uzytkownik == "Sławek":
             df = df[df['OSOBA'] == "Sławek"]
         else:
-            # Rafał i Agata widzą wszystko, co nie jest przypisane do Sławka
             df = df[df['OSOBA'] != "Sławek"]
 
     # Metryki
     m1, m2, m3 = st.columns(3)
     m1.metric("📋 Razem", len(df))
     
-    # Obsługa kolumny DNI (jeśli jest w pierwszych 5 kolumnach)
-    if 'DNI' in df.columns:
+    if st.session_state['widok'] == 'biezace' and 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
         m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
     else:
-        m2.metric("✅ Status", "Aktywne")
+        m2.metric("✅ Status", "Zarchiwizowane")
         
     m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
 
-    # Tabela
-    st.data_editor(df, use_container_width=True, hide_index=True, height=650)
+    # --- KONFIGURACJA KOLUMN (Wypośrodkowanie kolumny DNI) ---
+    st.data_editor(
+        df, 
+        use_container_width=True, 
+        hide_index=True, 
+        height=650,
+        column_config={
+            "DNI": st.column_config.Column(
+                "DNI",
+                help="Liczba dni do zakończenia (-2 oznacza 2 dni do terminu)",
+                width="small",
+                alignment="center"  # WYPOŚRODKOWANIE
+            ),
+            "DNI_N": None  # Ukrywamy kolumnę techniczną
+        }
+    )
 else:
     st.info("Brak danych.")
