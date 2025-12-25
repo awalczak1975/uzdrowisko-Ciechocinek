@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (WYMUSZENIE WIDOCZNOŚCI)
+# 1. KONFIGURACJA I STYLIZACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
@@ -23,7 +23,7 @@ st.markdown("""
         border-right: 5px solid #eab308 !important; 
     }
     
-    /* PRZYCISKI W PANELU - ZWARTY UKŁAD */
+    /* PRZYCISKI W PANELU */
     [data-testid="stSidebar"] div.stButton > button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; font-weight: 600 !important;
@@ -75,7 +75,6 @@ def generuj_kalendarz_html(df_zadania):
         mask = (df_zadania['DT'].dt.month == miesiac) & (df_zadania['DT'].dt.year == rok) & (df_zadania['DNI_N'] >= -2)
         pilne_daty = df_zadania[mask]['DT'].dt.day.unique().tolist()
 
-    # WYMUSZENIE BIAŁEGO TŁA I CZARNEGO TEKSTU PRZEZ STYLE INLINE
     html = f"""
     <div style="background-color: white; padding: 10px; border-radius: 10px; border: 2px solid #eab308; font-family: sans-serif;">
         <table style="width: 100%; border-collapse: collapse; line-height: 1.1;">
@@ -107,7 +106,7 @@ def generuj_kalendarz_html(df_zadania):
     return html
 
 # ==========================================================
-# 3. LOGIKA SIDEBARU (LOGO -> PRZYCISKI -> KALENDARZ)
+# 3. LOGIKA SIDEBARU
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 if u == "Andrzej" and k == "8800":
@@ -115,34 +114,29 @@ if u == "Andrzej" and k == "8800":
 else:
     st.error("BŁĄD LOGOWANIA"); st.stop()
 
-# Pobranie danych do kalendarza
 df_biezace = pobierz_df("Zadania bieżące")
 df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    # LOGO GRAFICZNE (HTML)
-    st.markdown(\"\"\"
+    st.markdown("""
         <div style="text-align:center; padding-bottom: 5px;">
             <div style="color:#eab308; font-size: 22px; font-weight: 900; line-height: 0.8;">UZDROWISKO</div>
             <div style="color:#0ea5e9; font-size: 14px; font-weight: 700; letter-spacing: 2px;">CIECHOCINEK</div>
         </div>
-    \"\"\", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
     
     st.divider()
     
-    # PRZYCISKI
     if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True):
-        st.info("Otwórz Arkusz Google, aby dodać zadanie.")
+        st.info("Dodaj zadanie w Arkuszu Google.")
     
     if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
     
-    # KALENDARZ (BIAŁA KARTA)
     st.components.v1.html(generuj_kalendarz_html(df_total), height=190)
     
-    # INFO NA DOLE
     st.markdown(f'<div class="sidebar-footer">Zalogowany: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
 
 # ==========================================================
@@ -156,13 +150,10 @@ for i, kat in enumerate(kat_list[:-1]):
         df = pobierz_df(kat)
         if not df.empty:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
-            
             m1, m2, m3 = st.columns(3)
             m1.metric("📋 Razem", len(df))
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
             m3.metric("🕒 Godzina", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
             
-            # Ikony statusu
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
-            
             st.data_editor(df, use_container_width=True, hide_index=True, height=700, key=f"ed_{kat}")
