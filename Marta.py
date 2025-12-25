@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (LOGO SKORYGOWANE O 1MM)
+# 1. KONFIGURACJA I STYLIZACJA (FINALNE POPRAWKI)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -20,15 +20,16 @@ st.markdown("""
     .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
-    /* --- KOREKTA POZYCJI LOGO O 1MM W DÓŁ --- */
+    /* LOGO I JEGO POZYCJA */
     .logo-container { 
         text-align: center; 
-        margin-top: -65px !important; /* Zmieniono z -70px na -65px dla obniżenia o 1mm */
-        margin-bottom: 35px !important; 
-        padding-bottom: 10px;
+        margin-top: -65px !important; 
+        margin-bottom: 30px !important; 
+        padding-bottom: 5px;
     }
     .logo-container img { width: 200px; cursor: pointer; }
     
+    /* ETYKIETA ZALOGOWANEGO */
     .sticky-user-badge {
         position: fixed; bottom: 15px; left: 15px; width: 270px;
         background-color: #eab308; color: #1e293b !important;
@@ -37,7 +38,7 @@ st.markdown("""
         z-index: 999999; box-shadow: 0 4px 10px rgba(0,0,0,0.4); border: 1px solid white;
     }
 
-    /* POMNIEJSZONE METRYKI */
+    /* METRYKI GŁÓWNE */
     [data-testid="stMetricValue"] > div { 
         display: flex !important; justify-content: center !important; 
         color: #eab308 !important; font-weight: 900 !important; font-size: 1.8rem !important; 
@@ -51,15 +52,28 @@ st.markdown("""
         border-radius: 10px !important; padding: 5px 10px !important; 
     }
 
+    /* ZAKŁADKI I ELEMENTY SIDEBARA */
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; margin-right: 5px; padding: 10px 25px !important; border: 1px solid #cbd5e1 !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
+    
     .term-box { background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.72rem; }
+    
+    /* NAGŁÓWEK NAWIGACJA - PODNIESIONY O OK. 2MM */
+    .sidebar-header-nav { 
+        color: #eab308; 
+        font-size: 0.8rem; 
+        font-weight: 800; 
+        text-transform: uppercase; 
+        margin-top: -8px !important; /* Podniesienie napisu */
+        margin-bottom: 5px !important; 
+    }
+    
     .sidebar-header { color: #eab308; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. UŻYTKOWNICY I LOGOWANIE
+# 2. BAZA UŻYTKOWNIKÓW
 # ==========================================================
 USERS = {
     "Andrzej": "8800", "Marta": "1111", "Sławek": "2222", 
@@ -129,7 +143,8 @@ st.markdown(f'<div class="sticky-user-badge">👤 ZALOGOWANO: {zalogowany.upper(
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><a href="?u={u_param}&k={k_param}" target="_self"><img src="{LOGO_URL}"></a></div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="sidebar-header">🧭 Nawigacja</div>', unsafe_allow_html=True)
+    # PODNIESIONY NAGŁÓWEK NAWIGACJA
+    st.markdown('<div class="sidebar-header-nav">🧭 Nawigacja</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1: st.button("➕ DODAJ", use_container_width=True)
     with c2: 
