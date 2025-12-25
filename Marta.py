@@ -16,9 +16,8 @@ st_autorefresh(interval=300000, key="datarefresh")
 # 2. DANE DOSTĘPOWE
 # ==========================================================
 KLUCZE_DOSTEPU = {"Andrzej": "8800", "Marta": "1234", "Rafał": "5566", "Agata": "9911", "Sławek": "4422"}
-TELEGRAM_TOKEN = "7547926145:AAHnOIdm6n6_uK03Kk_o0-U0q2F8C_xLpY8"
-TELEGRAM_CHAT_ID = "543788771"
 NAZWA_ARKUSZA = "Marta-Dział Techniczny"
+LISTA_OSOB = list(KLUCZE_DOSTEPU.keys())
 
 # ==========================================================
 # 3. WERYFIKACJA UŻYTKOWNIKA
@@ -48,36 +47,26 @@ def pobierz_dane_final(nazwa_zakladki):
     try:
         client = polacz_z_google()
         ws = client.open(NAZWA_ARKUSZA).worksheet(nazwa_zakladki)
-        # Pobieramy surowe dane (wszystkie, by nie pominąć nagłówków)
         dane_raw = ws.get_all_values()
         if not dane_raw: return pd.DataFrame()
-        
-        # Tworzymy DataFrame i bierzemy tylko pierwsze 5 kolumn (A:E)
         df = pd.DataFrame(dane_raw[1:], columns=dane_raw[0])
-        df = df.iloc[:, :5]
-        
-        # Usuwamy puste wiersze (na podstawie kolumny A)
+        df = df.iloc[:, :5] # Tylko kolumny A:E
         df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
         return df
-    except Exception as e:
-        st.error(f"Błąd odczytu zakładki '{nazwa_zakladki}': {e}")
+    except:
         return pd.DataFrame()
 
 def aktualizuj_arkusz(df_nowy, nazwa_zakladki):
     try:
         client = polacz_z_google()
         ws = client.open(NAZWA_ARKUSZA).worksheet(nazwa_zakladki)
-        # Przygotowujemy dane (tylko 5 kolumn)
         naglowki = df_nowy.columns.tolist()
         wartosci = df_nowy.values.tolist()
         dane_do_zapisu = [naglowki] + wartosci
-        
-        # Aktualizacja zakresu A1:E...
         zakres = f"A1:E{len(dane_do_zapisu)}"
         ws.update(zakres, dane_do_zapisu)
         return True
-    except Exception as e:
-        st.error(f"Błąd zapisu: {e}")
+    except:
         return False
 
 # ==========================================================
@@ -95,17 +84,57 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 6. PANEL BOCZNY
+# 6. OKNO DODAWANIA ZADANIA (DIALOG)
+# ==========================================================
+@st.dialog("➕ Dodaj nowe zadanie")
+def dodaj_zadanie_dialog():
+    with st.form("form_nowe"):
+        tresc = st.text_area("Treść zadania:")
+        osoba = st.selectbox("Osoba odpowiedzialna:", ["Brak"] + LISTA_OSOB)
+        termin = st.date_input("Termin realizacji:", datetime.now())
+        uwagi = st.text_input("Uwagi:")
+        
+        if st.form_submit_button("ZAPISZ ZADANIE"):
+            if not tresc:
+                st.error("Wpisz treść zadania!")
+            else:
+                try:
+                    client = polacz_z_google()
+                    # Wybór zakładki docelowej
+                    zakl = "Terminy Sławka" if osoba == "Sławek" else "Zadania bieżące"
+                    ws = client.open(NAZWA_ARKUSZA).worksheet(zakl)
+                    
+                    # Przygotowanie wiersza
+                    osoba_zapis = osoba if osoba != "Brak" else ""
+                    data_zapis = termin.strftime("%d.%m.%Y")
+                    nowy_wiersz = [tresc, osoba_zapis, data_zapis, "", uwagi]
+                    
+                    ws.append_row(nowy_wiersz)
+                    st.success(f"Dodano do: {zakl}")
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Błąd: {e}")
+
+# ==========================================================
+# 7. PANEL BOCZNY
 # ==========================================================
 with st.sidebar:
     st.markdown("<h2 style='color: #0ea5e9; text-align:center;'>UZDROWISKO<br><span style='color:#eab308'>CIECHOCINEK</span></h2>", unsafe_allow_html=True)
     st.divider()
+    
+    # PRZYCISK DODAWANIA (Tylko dla Andrzeja i Marty)
+    if czy_admin:
+        if st.button("➕ DODAJ NOWE ZADANIE"):
+            dodaj_zadanie_dialog()
+            
     if st.button("🔄 ODŚWIEŻ DANE"):
         st.cache_data.clear(); st.rerun()
+        
     st.write(f"Zalogowany: **{zalogowany_uzytkownik}**")
 
 # ==========================================================
-# 7. WIDOK GŁÓWNY
+# 8. WIDOK GŁÓWNY
 # ==========================================================
 if 'widok' not in st.session_state: st.session_state['widok'] = 'biezace'
 
@@ -129,13 +158,11 @@ zakladka_aktualna = mapa[st.session_state['widok']]
 df = pobierz_dane_final(zakladka_aktualna)
 
 if not df.empty:
-    # Sortowanie (szukamy kolumny TERMIN lub DEADLINE)
     kol_data = "DEADLINE" if "DEADLINE" in df.columns else "TERMIN"
     if kol_data in df.columns:
         df['tmp'] = pd.to_datetime(df[kol_data], dayfirst=True, errors='coerce')
         df = df.sort_values(by='tmp', ascending=True).drop(columns=['tmp'])
 
-    # Filtry
     if not czy_admin:
         if zalogowany_uzytkownik == "Sławek":
             if st.session_state['widok'] != 'slawek' and 'OSOBA' in df.columns:
@@ -144,7 +171,6 @@ if not df.empty:
             if 'OSOBA' in df.columns:
                 df = df[df['OSOBA'] != "Sławek"]
 
-    # Metryki
     m1, m2, m3 = st.columns(3)
     m1.metric("📋 Razem", len(df))
     if 'DNI' in df.columns:
@@ -153,20 +179,14 @@ if not df.empty:
     else: m2.metric("Status", "Aktywne")
     m3.metric("🕒 Godzina", datetime.now().strftime("%H:%M"))
 
-    # Edycja (tylko dla adminów)
     edited_df = st.data_editor(
-        df, 
-        use_container_width=True, 
-        hide_index=True, 
-        height=600,
-        disabled=not czy_admin,
-        column_config={"DNI_N": None}
+        df, use_container_width=True, hide_index=True, height=600,
+        disabled=not czy_admin, column_config={"DNI_N": None}
     )
 
     if czy_admin and not edited_df.equals(df):
-        if st.button("💾 ZAPISZ ZMIANY (KOLUMNY A-E)", type="primary"):
+        if st.button("💾 ZAPISZ ZMIANY (A-E)", type="primary"):
             if aktualizuj_arkusz(edited_df.iloc[:, :5], zakladka_aktualna):
-                st.success("Zapisano!")
-                st.cache_data.clear(); st.rerun()
+                st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
 else:
     st.info(f"Brak zadań w: {zakladka_aktualna}")
