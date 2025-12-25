@@ -7,31 +7,36 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (WYDŁUŻENIE I CENTRACJA)
+# 1. KONFIGURACJA I STYLIZACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
 
 st.markdown("""
     <style>
-    /* Wydłużenie kontenera głównego */
     .block-container { padding-top: 1rem !important; padding-bottom: 5rem !important; }
     
-    /* LEWY PANEL BOCZNY - STYL I UKŁAD */
+    /* LEWY PANEL BOCZNY */
     [data-testid="stSidebar"] { 
         background-color: #1e293b !important; 
         border-right: 5px solid #eab308 !important; 
     }
     [data-testid="stSidebar"] * { color: white !important; }
     
-    /* PRZYCISKI W PANELU */
+    /* PRZYCISKI I KALENDARZ W PANELU */
     [data-testid="stSidebar"] div.stButton > button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; font-weight: 600 !important;
-        height: 50px !important; margin-bottom: 10px !important;
+        height: 45px !important; margin-bottom: 5px !important;
+    }
+    
+    /* Stylizacja małego kalendarza w sidebarze */
+    div[data-testid="stSidebar"] div[data-baseweb="calendar"] {
+        background-color: #334155 !important;
+        border-radius: 8px !important;
     }
 
-    /* KAFELKI PODSUMOWANIA - PEŁNA CENTRACJA LICZB */
+    /* KAFELKI PODSUMOWANIA */
     [data-testid="stMetric"] { 
         background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
         border-radius: 10px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
@@ -56,12 +61,6 @@ st.markdown("""
     button[data-baseweb="tab"][aria-selected="true"] {
         color: white !important; background-color: #1e293b !important; 
         border-bottom: 4px solid #eab308 !important; 
-    }
-
-    /* OBNIŻENIE INFO O ZALOGOWANYM */
-    .sidebar-footer {
-        position: fixed; bottom: 20px; width: 250px; text-align: center;
-        color: #94a3b8; font-size: 0.85rem;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -102,7 +101,7 @@ def wyslij_chat(autor, adresat, tekst):
     except: return False
 
 # ==========================================================
-# 3. WERYFIKACJA I DIALOGI
+# 3. WERYFIKACJA UŻYTKOWNIKA
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 uzytkownicy = {"Andrzej": "8800", "Marta": "1234", "Rafał": "5566", "Agata": "9911", "Sławek": "4422"}
@@ -128,12 +127,36 @@ def dodaj_zadanie():
             except: st.error("Błąd zapisu")
 
 # ==========================================================
-# 4. PANEL BOCZNY (PRZYWRÓCONE I OBNIŻONE)
+# 4. LEWY PANEL (SIDEBAR) Z KALENDARZEM
 # ==========================================================
 with st.sidebar:
-    st.markdown(f"<h2 style='text-align:center;'>UZDROWISKO<br><span style='color:#eab308'>CIECHOCINEK</span></h2>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='text-align:center;'>UZDROWISKO<br><span style='color:#eab308'>CIECHOCINEK</span></h3>", unsafe_allow_html=True)
     st.divider()
     
+    # INTERAKTYWNY KALENDARZ
+    st.markdown("📅 **PRZEGLĄD TERMINÓW**")
+    wybrana_data = st.date_input("Wybierz datę:", datetime.now(), label_visibility="collapsed")
+    
+    # Logika podświetlania zadań z kalendarza w panelu bocznym
+    df_all = pobierz_df("Zadania bieżące")
+    if zalogowany == "Andrzej":
+        df_all = pd.concat([df_all, pobierz_df("Terminy Sławka")])
+    
+    if not df_all.empty:
+        df_all['DT'] = pd.to_datetime(df_all['DEADLINE'], dayfirst=True, errors='coerce')
+        zadania_wybranego_dnia = df_all[df_all['DT'].dt.date == wybrana_data]
+        
+        if not zadania_wybranego_dnia.empty:
+            st.markdown("---")
+            for _, r in zadania_wybranego_dnia.iterrows():
+                # Pana logika kolorystyczna: -2 i więcej na czerwono
+                dni_val = pd.to_numeric(r.get('DNI', 0), errors='coerce', default=0)
+                emoji = "🚨" if dni_val >= -2 else "✅"
+                st.info(f"{emoji} {r['TREŚĆ ZADANIA']}")
+        else:
+            st.caption("Brak terminów na ten dzień.")
+
+    st.divider()
     if czy_admin:
         if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): dodaj_zadanie()
     
@@ -141,11 +164,10 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
     
-    # Obniżona informacja o użytkowniku
-    st.markdown(f'<div class="sidebar-footer">Zalogowany: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center; color:#94a3b8; font-size:0.8rem; margin-top:20px;'>Zalogowany: <b>{zalogowany}</b></div>", unsafe_allow_html=True)
 
 # ==========================================================
-# 5. WIDOK GŁÓWNY (POWIĘKSZONY ARKUSZ)
+# 5. WIDOK GŁÓWNY (ZAKŁADKI)
 # ==========================================================
 kat_list = ["Zadania bieżące", "Zadania zrealizowane"]
 if zalogowany == "Andrzej": kat_list.append("Terminy Sławka")
@@ -159,7 +181,7 @@ for i, kat in enumerate(kat_list[:-1]):
         if not df.empty:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
             
-            # KAFELKI PODSUMOWANIA (CENTROWANE)
+            # KAFELKI PODSUMOWANIA
             m1, m2, m3 = st.columns(3)
             m1.metric("📋 Razem zadań", len(df))
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
@@ -167,9 +189,8 @@ for i, kat in enumerate(kat_list[:-1]):
             
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
             
-            # POWIĘKSZONA WYSOKOŚĆ (800), aby uniknąć przesuwania
             edytowane = st.data_editor(
-                df, use_container_width=True, hide_index=True, height=800,
+                df, use_container_width=True, hide_index=True, height=700,
                 disabled=not czy_admin, key=f"ed_{kat}",
                 column_config={"DNI_N": None, "S": st.column_config.TextColumn(" ", width="small")}
             )
@@ -197,7 +218,7 @@ with tabs[-1]:
     if not df_c.empty:
         for _, r in df_c.iloc[::-1].iterrows():
             if r['Adresat'] in [zalogowany, "Wszyscy"] or r['Autor'] == zalogowany:
-                st.markdown(f'<div style="padding:12px; border-radius:10px; border-left:5px solid #0ea5e9; background-color:#f8fafc; margin-bottom:8px;"><b>{r["Autor"]}</b> do <b>{r["Adresat"]}</b> ({r["Data"]}):<br>{r["Wiadomość"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="padding:10px; border-radius:10px; border-left:5px solid #0ea5e9; background-color:#f8fafc; margin-bottom:8px;"><b>{r["Autor"]}</b> do <b>{r["Adresat"]}</b> ({r["Data"]}):<br>{r["Wiadomość"]}</div>', unsafe_allow_html=True)
 
 # ==========================================================
 # 6. DOLNA BELKA WWW
