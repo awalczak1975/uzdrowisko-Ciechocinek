@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (POWRÓT DO ELEGANCKIEGO WYGLĄDU)
+# 1. KONFIGURACJA I STYLIZACJA (UKŁAD I KOLORYSTYKA)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
@@ -31,17 +31,7 @@ st.markdown("""
         font-size: 0.9rem !important;
     }
 
-    /* BIAŁA KARTA KALENDARZA - STYL INLINE DLA KONTRASTU */
-    .cal-card {
-        background-color: white;
-        padding: 12px;
-        border-radius: 12px;
-        border: 2px solid #eab308;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-        margin-bottom: 15px;
-    }
-
-    /* ZAKŁADKI (TABS) - KOLOR LEWEGO PANELU */
+    /* AKTYWNA ZAKŁADKA - KOLOR LEWEGO PANELU */
     button[data-baseweb="tab"] {
         font-size: 1.1rem !important; font-weight: 700 !important;
         color: #475569 !important; background-color: #f1f5f9 !important;
@@ -54,21 +44,29 @@ st.markdown("""
         border-bottom: 4px solid #eab308 !important; 
     }
 
-    /* METRYKI PODSUMOWANIA */
+    /* KAFELKI PODSUMOWANIA */
     [data-testid="stMetric"] { 
         background-color: #1e293b !important; border-top: 4px solid #eab308 !important; 
         border-radius: 10px !important; text-align: center !important; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
 
-    /* INFO O UŻYTKOWNIKU */
-    .sidebar-footer { position: fixed; bottom: 10px; width: 240px; text-align: center; color: #94a3b8; font-size: 0.75rem; }
+    /* OBNIŻENIE INFO O UŻYTKOWNIKU NA SAM DÓŁ */
+    .sidebar-footer {
+        position: fixed;
+        bottom: 15px;
+        width: 250px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 0.8rem;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. FUNKCJE DANYCH
+# 2. FUNKCJE TECHNICZNE (DANE)
 # ==========================================================
 def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
@@ -114,20 +112,17 @@ def generuj_kalendarz_html(df_zadania):
         for day in week:
             if day == 0: html += "<td></td>"
             else:
-                bg = "transparent"
-                color = "#1e293b"
-                border = "none"
+                bg = "transparent"; color = "#1e293b"; border = "none"
                 if day == now.day: bg = "#eab308"
                 if day in pilne_daty:
-                    color = "#ef4444"
-                    border = "1px solid #ef4444"
+                    color = "#ef4444"; border = "1px solid #ef4444"
                 html += f'<td style="text-align: center; padding: 6px 1px; font-size: 13px; font-weight: 700; color: {color}; background-color: {bg}; border-radius: 4px; border: {border};">{day}</td>'
         html += "</tr>"
     html += "</tbody></table></div>"
     return html
 
 # ==========================================================
-# 3. LOGIKA SIDEBARU
+# 3. LOGIKA SIDEBARU (UKŁAD ELEMENTÓW)
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 if u == "Andrzej" and k == "8800": zalogowany = u
@@ -138,6 +133,7 @@ df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
+    # LOGO
     st.markdown("""
         <div style="text-align:center; padding-bottom: 10px;">
             <div style="color:#eab308; font-size: 24px; font-weight: 900; line-height: 0.8;">UZDROWISKO</div>
@@ -147,26 +143,22 @@ with st.sidebar:
     
     st.divider()
     
-    if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): st.info("Dodaj w Arkuszu Google.")
-    if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True): st.cache_data.clear(); st.rerun()
+    # PRZYCISKI
+    if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True):
+        st.info("Otwórz arkusz Google, aby dopisać nowe zadanie.")
     
-    # POWRÓT DO GRAFICZNEGO KALENDARZA
+    if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+    
+    # KALENDARZ
     st.components.v1.html(generuj_kalendarz_html(df_total), height=230)
     
-    # LISTA TERMINÓW NA DZIŚ POD KALENDARZEM
-    now_dt = datetime.now(pytz.timezone('Europe/Warsaw')).date()
-    df_total['DT'] = pd.to_datetime(df_total['DEADLINE'], dayfirst=True, errors='coerce')
-    zadania_dzis = df_total[df_total['DT'].dt.date == now_dt]
-    
-    if not zadania_dzis.empty:
-        st.markdown(f"📅 **Terminy na dziś ({now_dt.strftime('%d.%m')}):**")
-        for _, r in zadania_dzis.iterrows():
-            st.markdown(f"<small>🚨 {r['TREŚĆ ZADANIA']}</small>", unsafe_allow_html=True)
-    
-    st.markdown(f'<div class="sidebar-user" style="text-align:center; color:#94a3b8; font-size:0.75rem; margin-top:20px;">Zalogowany: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
+    # INFO O ZALOGOWANYM (NA SAMYM DOLE)
+    st.markdown(f'<div class="sidebar-footer">Zalogowany: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (ZAKŁADKI)
+# 4. WIDOK GŁÓWNY (ZAKŁADKI I DANE)
 # ==========================================================
 kat_list = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "🔴 CZAT"]
 tabs = st.tabs(kat_list)
@@ -176,10 +168,15 @@ for i, kat in enumerate(kat_list[:-1]):
         df = pobierz_df(kat)
         if not df.empty:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
+            
+            # PODSUMOWANIE (METRYKI)
             m1, m2, m3 = st.columns(3)
             m1.metric("📋 Razem", len(df))
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
             m3.metric("🕒 Godzina", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
             
+            # Ikony statusu w tabeli
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
+            
+            # Tabela danych (Arkusz)
             st.data_editor(df, use_container_width=True, hide_index=True, height=750, key=f"ed_{kat}")
