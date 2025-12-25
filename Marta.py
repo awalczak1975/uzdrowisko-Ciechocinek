@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (PANEL DOLNY W BARWACH FIRMY)
+# 1. KONFIGURACJA I STYLIZACJA (KOMPAKTOWA STOPKA)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
@@ -20,11 +20,9 @@ st.markdown("""
     .block-container { padding-top: 1rem !important; padding-bottom: 0px !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
-    /* LOGO I PRZYCISKI */
+    /* LOGO I METRYKI */
     .logo-container { text-align: center; margin-top: -30px !important; margin-bottom: 20px !important; }
     .logo-container img { width: 200px; cursor: pointer; }
-
-    /* METRYKI */
     [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }
     [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
     [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; padding: 10px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
@@ -33,19 +31,18 @@ st.markdown("""
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; margin-right: 5px !important; padding: 10px 25px !important; border: 1px solid #cbd5e1 !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
 
-    /* --- NOWA STYLIZACJA PANELU DOLNEGO (BRANDING) --- */
+    /* --- KOMPAKTOWY PANEL DOLNY --- */
     .main-sheet-footer {
-        margin-top: 40px;
-        padding: 25px;
-        background-color: #1e293b; /* Kolor lewego panelu */
-        border-top: 5px solid #eab308; /* Złota linia */
-        border-radius: 15px;
+        margin-top: 20px;
+        padding: 10px; /* Znacznie mniejsza wysokość */
+        background-color: #1e293b;
+        border-top: 3px solid #eab308;
+        border-radius: 10px;
         text-align: center;
-        box-shadow: 0 -5px 20px rgba(0,0,0,0.2);
+        color: white;
     }
-    .footer-title { color: #eab308; font-size: 1.4rem; font-weight: 900; letter-spacing: 2px; margin-bottom: 5px; }
-    .footer-sub { color: #f8fafc; font-size: 0.95rem; font-weight: 400; opacity: 0.9; }
-    .footer-time { color: #94a3b8; font-size: 0.8rem; margin-top: 10px; border-top: 1px solid #334155; padding-top: 10px; display: inline-block; }
+    .footer-text { font-size: 0.85rem; font-weight: 600; letter-spacing: 1px; }
+    .footer-info { color: #94a3b8; font-size: 0.75rem; margin-top: 2px; }
     
     .sidebar-footer-new { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #334155; color: #94a3b8; font-size: 0.75rem; }
     </style>
@@ -124,7 +121,7 @@ with st.sidebar:
         st.markdown(f"<div style='background-color:#334155; padding:8px; border-radius:8px; border-left:4px solid #ef4444; margin-bottom:6px;'><p style='color:white; font-size:0.8rem; margin:0;'><b>{r['DEADLINE']}</b>: {r['TREŚĆ ZADANIA']}</p></div>", unsafe_allow_html=True)
     
     now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
-    st.markdown(f'<div class="sidebar-footer-new">System Zarządzania &copy; {now_pl.year}<br>Użytkownik: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sidebar-footer-new">System Zarządzania &copy; {now_pl.year}<br>Andrzej Walczak</div>', unsafe_allow_html=True)
 
 # ==========================================================
 # 4. WIDOK GŁÓWNY
@@ -144,23 +141,18 @@ for i, kat in enumerate(kat_list[:-1]):
             m4.metric("🕒 Ostatnia aktualizacja", now_pl.strftime("%H:%M"))
             
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
-            edytowane = st.data_editor(df, use_container_width=True, hide_index=True, height=600, key=f"ed_{kat}")
+            edytowane = st.data_editor(df, use_container_width=True, hide_index=True, height=700, key=f"ed_{kat}")
             
             if st.button(f"💾 ZAPISZ ZMIANY: {kat.upper()}", key=f"btn_{kat}"):
                 if zapisz_df(edytowane.drop(columns=["S", "DNI_N"]), kat):
                     st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
 
-# --- BRANDOWY PANEL DOLNY ---
+# --- KOMPAKTOWA BELKA DOLNA (BRANDING) ---
 st.markdown(f"""
     <div class="main-sheet-footer">
-        <div class="footer-title">UZDROWISKO CIECHOCINEK S.A.</div>
-        <div class="footer-sub">
-            System Zarządzania Zadaniami Działu Technicznego<br>
-            Monitorowanie i synchronizacja w czasie rzeczywistym
-        </div>
-        <div class="footer-time">
-            Stan na: <b>{now_pl.strftime('%d.%m.%Y')}</b> | 
-            Ostatnia synchronizacja: <b>{now_pl.strftime('%H:%M:%S')}</b>
+        <span class="footer-text">UZDROWISKO CIECHOCINEK S.A.</span>
+        <div class="footer-info">
+            Monitorowanie Zadań Działu Technicznego | {now_pl.strftime('%d.%m.%Y')} | {now_pl.strftime('%H:%M:%S')}
         </div>
     </div>
 """, unsafe_allow_html=True)
