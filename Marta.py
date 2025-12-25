@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (NAPRAWA ZASŁANIANIA)
+# 1. KONFIGURACJA I STYLIZACJA (PODNIESIONY NAGŁÓWEK)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -24,7 +24,7 @@ st.markdown("""
     .logo-container { text-align: center; margin-top: -65px !important; margin-bottom: 25px !important; }
     .logo-container img { width: 200px; }
     
-    /* --- NOWA ETYKIETA ZALOGOWANEGO (ZINTEGROWANA, NIE ZASŁANIA) --- */
+    /* ETYKIETA ZALOGOWANEGO */
     .user-info-box {
         background-color: #eab308;
         color: #1e293b !important;
@@ -47,8 +47,16 @@ st.markdown("""
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 25px !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
     
+    /* MODUŁ NADCHODZĄCYCH (PODNIESIONY O 3MM) */
     .term-box { background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.72rem; }
-    .sidebar-header { color: #eab308; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 10px; }
+    .sidebar-header { 
+        color: #eab308; 
+        font-size: 0.8rem; 
+        font-weight: 800; 
+        text-transform: uppercase; 
+        margin-bottom: 5px; 
+        margin-top: -3px !important; /* Zredukowano margines górny o ok. 3mm */
+    }
     
     /* CZAT */
     .chat-bubble-container { display: flex; flex-direction: column; gap: 8px; padding: 15px; background: #f1f5f9; border-radius: 12px; margin-bottom: 20px; border: 1px solid #cbd5e1; }
@@ -100,12 +108,13 @@ def generuj_kalendarz_html(df_zadania, user):
             else:
                 bg = "#eab308" if day == now.day else "transparent"
                 color = "#ef4444" if day in dni_z_terminami else "#1e293b"
-                html += f'<td style="text-align:center; padding:2px; font-weight:700; background-color:{bg}; color:{color}; border:{"1px solid #ef4444" if day in dni_z_terminami else "none"}; border-radius:4px;">{day}</td>'
+                border = "1px solid #ef4444" if day in dni_z_terminami else "none"
+                html += f'<td style="text-align:center; padding:2px; font-weight:700; background-color:{bg}; color:{color}; border:{border}; border-radius:4px;">{day}</td>'
         html += "</tr>"
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 4. SIDEBAR (BEZ ZASŁANIANIA)
+# 4. SIDEBAR
 # ==========================================================
 df_biez = pobierz_df("Zadania bieżące")
 df_chat = pobierz_df("CZAT")
@@ -113,14 +122,16 @@ has_new = not df_chat[(df_chat['ODBIORCA'] == zalogowany) & (df_chat['STATUS'] =
 
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><img src="{LOGO_URL}"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-header">🧭 Nawigacja</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-header" style="margin-top:0px !important;">🧭 Nawigacja</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1: st.button("➕ DODAJ", use_container_width=True)
     with c2: 
         if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
     st.markdown('<div style="border-top:1px solid #334155; margin:10px 0;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-header">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
-    st.components.v1.html(generuj_kalendarz_html(df_biez, zalogowany), height=175)
+    st.components.v1.html(generuj_kalendarz_html(df_biez, zalogowany), height=170) # Nieznacznie zmniejszono wysokość (z 175)
+    
+    # NAGŁÓWEK PODNIESIONY O 3MM
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_biez.empty:
         df_side = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
@@ -128,12 +139,11 @@ with st.sidebar:
             dni = pd.to_numeric(r.get('DNI', 0), errors='coerce')
             st.markdown(f'<div class="term-box">{"🔥" if dni >= -2 else "🟢"} <b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:30]}...</div>', unsafe_allow_html=True)
     
-    # --- ETYKIETA ZALOGOWANEGO NA KOŃCU LISTY W SIDEBARZE ---
     display_name = f"{zalogowany.upper()} Walczak" if zalogowany == "Andrzej" else zalogowany.upper()
     st.markdown(f'<div class="user-info-box">👤 ZALOGOWANO: {display_name}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 5. WIDOK GŁÓWNY (CZYSTY I CZYTELNY)
+# 5. WIDOK GŁÓWNY
 # ==========================================================
 chat_tab_label = f"💬 CZAT {'🔴' if has_new else ''}"
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", chat_tab_label])
@@ -159,8 +169,7 @@ with tabs[3]:
         historia = df_chat[(df_chat['NADAWCA'] == zalogowany) | (df_chat['ODBIORCA'] == zalogowany)].tail(15)
         for _, r in historia.iterrows():
             is_me = r['NADAWCA'] == zalogowany
-            align = "bubble-me" if is_me else "bubble-other"
-            chat_html += f'<div class="bubble {align}"><b>{r["NADAWCA"]}</b><br>{r["TREŚĆ"]}</div>'
+            chat_html += f'<div class="bubble {"bubble-me" if is_me else "bubble-other"}"><b>{r["NADAWCA"]}</b><br>{r["TREŚĆ"]}</div>'
         chat_html += '</div>'
         st.markdown(chat_html, unsafe_allow_html=True)
     
