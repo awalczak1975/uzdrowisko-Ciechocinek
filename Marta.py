@@ -8,13 +8,15 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (WIDOCZNOŚĆ ZAKŁADEK)
+# 1. KONFIGURACJA I STYLIZACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
 
-# Poprawiony, bezpośredni link do pliku na GitHub (Raw)
+# Bezpieczny link do logo na GitHub
 LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20%281%29.png"
+# Link powrotny do głównej strony aplikacji
+APP_URL = "https://uzdrowisko-ciechocinek.streamlit.app/?u=Andrzej&k=8800"
 
 st.markdown("""
     <style>
@@ -26,11 +28,18 @@ st.markdown("""
         border-right: 5px solid #eab308 !important; 
     }
     
-    /* LOGO */
-    .logo-box {
+    /* STYLIZACJA LOGO JAKO LINKU */
+    .logo-link-container {
         text-align: center;
         margin-top: -30px !important;
         margin-bottom: 20px !important;
+    }
+    .logo-link-container img {
+        transition: transform 0.3s ease;
+        cursor: pointer;
+    }
+    .logo-link-container img:hover {
+        transform: scale(1.05); /* Efekt lekkiego powiększenia po najechaniu */
     }
 
     /* PRZYCISKI W PANELU */
@@ -40,22 +49,21 @@ st.markdown("""
         height: 46px !important; margin-bottom: 5px !important;
     }
 
-    /* --- POPRAWIONE ZAKŁADKI (TABS) --- */
+    /* ZAKŁADKI (TABS) - POPRAWIONA WIDOCZNOŚĆ */
     button[data-baseweb="tab"] {
         font-size: 1.1rem !important; font-weight: 700 !important;
-        color: #1e293b !important; /* Ciemny tekst dla nieaktywnych */
-        background-color: #e2e8f0 !important; /* Wyraźne szare tło dla nieaktywnych */
+        color: #1e293b !important;
+        background-color: #e2e8f0 !important;
         border-radius: 8px 8px 0 0 !important; margin-right: 5px !important;
         padding: 10px 25px !important; border: 1px solid #cbd5e1 !important;
-        opacity: 0.8; /* Lekka przezroczystość dla nieaktywnych */
+        opacity: 0.85;
     }
     
-    /* AKTYWNA ZAKŁADKA - KOLOR PANELU */
     button[data-baseweb="tab"][aria-selected="true"] {
         color: white !important;
         background-color: #1e293b !important; 
         border-bottom: 4px solid #eab308 !important; 
-        opacity: 1; /* Pełna widoczność dla aktywnej */
+        opacity: 1;
     }
 
     /* METRYKI PODSUMOWANIA */
@@ -136,7 +144,7 @@ def generuj_kalendarz_html(df_zadania):
     return html
 
 # ==========================================================
-# 3. LOGIKA SIDEBARU
+# 3. LOGIKA SIDEBARU (KLIKALNE LOGO)
 # ==========================================================
 u, k = st.query_params.get("u", ""), st.query_params.get("k", "")
 if u == "Andrzej" and k == "8800": zalogowany = u
@@ -147,7 +155,14 @@ df_slawek = pobierz_df("Terminy Sławka")
 df_total = pd.concat([df_biezace, df_slawek])
 
 with st.sidebar:
-    st.markdown(f'<div class="logo-box"><img src="{LOGO_URL}" width="200"></div>', unsafe_allow_html=True)
+    # --- LOGO JAKO LINK POWROTNY ---
+    st.markdown(f'''
+        <div class="logo-link-container">
+            <a href="{APP_URL}" target="_self">
+                <img src="{LOGO_URL}" width="200" title="Powrót do strony głównej">
+            </a>
+        </div>
+    ''', unsafe_allow_html=True)
     
     st.markdown('<div style="border-bottom: 1px solid #334155; margin: 5px 0 10px 0;"></div>', unsafe_allow_html=True)
     
