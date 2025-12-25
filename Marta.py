@@ -9,12 +9,7 @@ from streamlit_autorefresh import st_autorefresh
 # ==========================================================
 # 1. KONFIGURACJA STRONY
 # ==========================================================
-st.set_page_config(
-    page_title="System Uzdrowisko", 
-    layout="wide", 
-    initial_sidebar_state="expanded"
-)
-
+st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=300000, key="datarefresh")
 
 # ==========================================================
@@ -37,11 +32,11 @@ if user_url in KLUCZE_DOSTEPU and KLUCZE_DOSTEPU[user_url] == key_url:
     czy_andrzej = (user_url == "Andrzej")
     czy_admin = (user_url in ["Andrzej", "Marta"])
 else:
-    st.error("❌ BŁĄD DOSTĘPU: Nieprawidłowy link lub klucz.")
+    st.error("❌ BŁĄD DOSTĘPU")
     st.stop()
 
 # ==========================================================
-# 4. FUNKCJE POMOCNICZE
+# 4. FUNKCJE GOOGLE SHEETS
 # ==========================================================
 def polacz_z_google():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
@@ -56,54 +51,35 @@ def pobierz_dane_final(nazwa_zakladki):
         wb = client.open(NAZWA_ARKUSZA)
         ws = wb.worksheet(nazwa_zakladki)
         dane_raw = ws.get_all_values()
-        if not dane_raw or len(dane_raw) < 1: return pd.DataFrame()
+        if not dane_raw: return pd.DataFrame()
         df = pd.DataFrame(dane_raw[1:], columns=dane_raw[0])
         df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
         return df
     except:
         return pd.DataFrame()
 
+def aktualizuj_arkusz(df_nowy, nazwa_zakladki):
+    try:
+        client = polacz_z_google()
+        ws = client.open(NAZWA_ARKUSZA).worksheet(nazwa_zakladki)
+        # Przygotowanie danych (Nagłówki + Wiersze)
+        dane_do_zapisu = [df_nowy.columns.values.tolist()] + df_nowy.values.tolist()
+        ws.update('A1', dane_do_zapisu)
+        return True
+    except:
+        return False
+
 # ==========================================================
-# 5. STYLIZACJA CSS (Zwiększona czcionka metryk)
+# 5. STYLIZACJA CSS
 # ==========================================================
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
-    
-    .stButton button {
-        background-color: #334155 !important; color: white !important;
-        border: 1px solid #94a3b8 !important; text-transform: uppercase !important;
-        font-size: 0.8rem !important; width: 100%;
-    }
-    
-    /* KONFIGURACJA METRYK */
-    [data-testid="stMetric"] { 
-        background-color: white !important; border-top: 4px solid #eab308 !important; 
-        border-radius: 8px !important; padding: 15px !important; 
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        text-align: center !important;
-    }
-    
-    /* Zwiększona czcionka wartości (liczb) */
-    [data-testid="stMetricValue"] > div {
-        display: flex !important;
-        justify-content: center !important;
-        font-weight: 900 !important;
-        font-size: 2.2rem !important; /* Poprzednio ok. 1.6rem */
-        color: #1e293b !important;
-    }
-    
-    /* Zwiększona czcionka etykiet (napisów na górze) */
-    [data-testid="stMetricLabel"] > div {
-        display: flex !important;
-        justify-content: center !important;
-        font-size: 1.1rem !important; /* Poprzednio ok. 0.8rem */
-        font-weight: 600 !important;
-        color: #334155 !important;
-    }
-
-    .op-footer { text-align: center; color: #94a3b8; border-top: 1px solid #334155; padding-top: 15px; margin-top: 20px; font-size: 0.8rem; }
+    .stButton button { background-color: #334155 !important; color: white !important; border: 1px solid #94a3b8 !important; font-size: 0.8rem !important; width: 100%; }
+    [data-testid="stMetric"] { background-color: white !important; border-top: 4px solid #eab308 !important; border-radius: 8px !important; padding: 15px !important; text-align: center !important; }
+    [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; font-weight: 900 !important; font-size: 2.2rem !important; color: #1e293b !important; }
+    [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; font-size: 1.1rem !important; font-weight: 600 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -115,15 +91,14 @@ with st.sidebar:
     st.divider()
     if st.button("🔄 ODŚWIEŻ DANE"):
         st.cache_data.clear(); st.rerun()
-    st.markdown(f"<div class='op-footer'>Zalogowany: <b>{zalogowany_uzytkownik}</b></div>", unsafe_allow_html=True)
+    st.write(f"Zalogowany: **{zalogowany_uzytkownik}**")
 
 # ==========================================================
 # 7. WIDOK GŁÓWNY
 # ==========================================================
-st.markdown('<h3 style="text-align:center; color: #1e293b;">Centrum Zarządzania Administracją</h3>', unsafe_allow_html=True)
-
 if 'widok' not in st.session_state: st.session_state['widok'] = 'biezace'
 
+# Przyciski widoku
 if czy_andrzej:
     c1, c2, c3 = st.columns(3)
     with c1: 
@@ -140,16 +115,17 @@ else:
         if st.button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
 
 mapa = {'biezace': "Zadania bieżące", 'zrealizowane': "Zadania zrealizowane", 'slawek': "Terminy Sławka"}
-df = pobierz_dane_final(mapa[st.session_state['widok']])
+zakladka_aktualna = mapa[st.session_state['widok']]
+df = pobierz_dane_final(zakladka_aktualna)
 
 if not df.empty:
-    # Sortowanie
-    kol_data = "DEADLINE" if st.session_state['widok'] == 'slawek' else "TERMIN"
+    # Sortowanie (TERMIN lub DEADLINE)
+    kol_data = "DEADLINE" if "DEADLINE" in df.columns else "TERMIN"
     if kol_data in df.columns:
         df['tmp'] = pd.to_datetime(df[kol_data], dayfirst=True, errors='coerce')
         df = df.sort_values(by='tmp', ascending=True).drop(columns=['tmp'])
 
-    # Filtry
+    # Filtry uprawnień (Tylko Andrzej i Marta widzą wszystko)
     if not czy_admin:
         if zalogowany_uzytkownik == "Sławek":
             if st.session_state['widok'] != 'slawek' and 'OSOBA' in df.columns:
@@ -163,11 +139,30 @@ if not df.empty:
     m1.metric("📋 Razem", len(df))
     if 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
-        # Zgodnie z instrukcją: -2 to dwa dni do realizacji, wartości dodatnie to miniony czas
         m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
     else: m2.metric("Status", "Aktywne")
-    m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
+    m3.metric("🕒 Godzina", datetime.now().strftime("%H:%M"))
 
-    st.data_editor(df, use_container_width=True, hide_index=True, height=650, column_config={"DNI_N": None})
+    # TABELA Z MOŻLIWOŚCIĄ EDYCJI DLA ADMINA
+    # Jeśli jesteś adminem, parametr 'disabled=False' pozwala na edycję
+    edited_df = st.data_editor(
+        df, 
+        use_container_width=True, 
+        hide_index=True, 
+        height=600,
+        disabled=not czy_admin, # Rafał/Agata/Sławek mają tylko do odczytu
+        column_config={"DNI_N": None}
+    )
+
+    # Przycisk zapisu widoczny tylko dla Admina po dokonaniu zmian
+    if czy_admin and not edited_df.equals(df):
+        if st.button("💾 ZAPISZ ZMIANY W ARKUSZU", type="primary"):
+            if aktualizuj_arkusz(edited_df, zakladka_aktualna):
+                st.success("Arkusz został zaktualizowany!")
+                st.cache_data.clear()
+                st.rerun()
+            else:
+                st.error("Błąd zapisu danych.")
+
 else:
-    st.info(f"Brak zadań w: {mapa[st.session_state['widok']]}")
+    st.info(f"Brak zadań w: {zakladka_aktualna}")
