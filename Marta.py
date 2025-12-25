@@ -1,3 +1,13 @@
+# ================== IMPORTY ==================
+import streamlit as st
+import gspread
+from google.oauth2.service_account import Credentials
+import pandas as pd
+from datetime import datetime
+from streamlit_autorefresh import st_autorefresh
+import requests
+
+# ================== TEST POŁĄCZENIA Z GOOGLE SHEETS ==================
 st.title("Test połączenia z Google Sheets")
 
 try:
@@ -14,14 +24,6 @@ try:
     st.write("Dostępne arkusze:", arkusze)
 except Exception as e:
     st.error(f"❌ Błąd połączenia: {e}")
-
-import streamlit as st
-import gspread
-import pandas as pd
-from datetime import datetime
-from google.oauth2.service_account import Credentials
-from streamlit_autorefresh import st_autorefresh
-import requests
 
 # ================== KONFIGURACJA ==================
 NAZWA_ARKUSZA = "Marta-Dział Techniczny"
@@ -168,9 +170,3 @@ with st.sidebar:
     if st.button("➕ DODAJ ZADANIE"):
         dodaj_zadanie()
     st.markdown(f"Zalogowany: **{user}**")
-
-
-
-
-
-
