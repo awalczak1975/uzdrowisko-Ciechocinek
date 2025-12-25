@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (W TYM STOPKA GŁÓWNA)
+# 1. KONFIGURACJA I STYLIZACJA (PANEL DOLNY W BARWACH FIRMY)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
@@ -17,10 +17,10 @@ LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocine
 
 st.markdown("""
     <style>
-    .block-container { padding-top: 1rem !important; padding-bottom: 2rem !important; }
+    .block-container { padding-top: 1rem !important; padding-bottom: 0px !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
-    /* LOGO */
+    /* LOGO I PRZYCISKI */
     .logo-container { text-align: center; margin-top: -30px !important; margin-bottom: 20px !important; }
     .logo-container img { width: 200px; cursor: pointer; }
 
@@ -33,18 +33,19 @@ st.markdown("""
     button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; margin-right: 5px !important; padding: 10px 25px !important; border: 1px solid #cbd5e1 !important; }
     button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
 
-    /* --- NOWA STOPKA GŁÓWNEGO ARKUSZA --- */
+    /* --- NOWA STYLIZACJA PANELU DOLNEGO (BRANDING) --- */
     .main-sheet-footer {
-        margin-top: 30px;
-        padding: 20px;
-        background-color: #f8fafc;
-        border-top: 5px solid #eab308;
-        border-radius: 0 0 15px 15px;
+        margin-top: 40px;
+        padding: 25px;
+        background-color: #1e293b; /* Kolor lewego panelu */
+        border-top: 5px solid #eab308; /* Złota linia */
+        border-radius: 15px;
         text-align: center;
-        box-shadow: 0 -5px 15px rgba(0,0,0,0.05);
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.2);
     }
-    .footer-title { color: #1e293b; font-size: 1.2rem; font-weight: 800; letter-spacing: 1px; }
-    .footer-sub { color: #64748b; font-size: 0.9rem; margin-top: 5px; }
+    .footer-title { color: #eab308; font-size: 1.4rem; font-weight: 900; letter-spacing: 2px; margin-bottom: 5px; }
+    .footer-sub { color: #f8fafc; font-size: 0.95rem; font-weight: 400; opacity: 0.9; }
+    .footer-time { color: #94a3b8; font-size: 0.8rem; margin-top: 10px; border-top: 1px solid #334155; padding-top: 10px; display: inline-block; }
     
     .sidebar-footer-new { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #334155; color: #94a3b8; font-size: 0.75rem; }
     </style>
@@ -126,7 +127,7 @@ with st.sidebar:
     st.markdown(f'<div class="sidebar-footer-new">System Zarządzania &copy; {now_pl.year}<br>Użytkownik: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY Z PODSUMOWANIEM NA DOLE
+# 4. WIDOK GŁÓWNY
 # ==========================================================
 kat_list = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "🔴 CZAT"]
 tabs = st.tabs(kat_list)
@@ -149,13 +150,17 @@ for i, kat in enumerate(kat_list[:-1]):
                 if zapisz_df(edytowane.drop(columns=["S", "DNI_N"]), kat):
                     st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
 
-# --- DEDYKOWANA STOPKA POD ARKUSZEM ---
+# --- BRANDOWY PANEL DOLNY ---
 st.markdown(f"""
     <div class="main-sheet-footer">
         <div class="footer-title">UZDROWISKO CIECHOCINEK S.A.</div>
         <div class="footer-sub">
-            Oficjalny System Monitorowania Zadań Działu Technicznego<br>
-            Stan danych na dzień: <b>{now_pl.strftime('%d.%m.%Y')}</b> | Godzina: <b>{now_pl.strftime('%H:%M:%S')}</b>
+            System Zarządzania Zadaniami Działu Technicznego<br>
+            Monitorowanie i synchronizacja w czasie rzeczywistym
+        </div>
+        <div class="footer-time">
+            Stan na: <b>{now_pl.strftime('%d.%m.%Y')}</b> | 
+            Ostatnia synchronizacja: <b>{now_pl.strftime('%H:%M:%S')}</b>
         </div>
     </div>
 """, unsafe_allow_html=True)
