@@ -64,35 +64,43 @@ def pobierz_dane_final(nazwa_zakladki):
         return pd.DataFrame()
 
 # ==========================================================
-# 5. STYLIZACJA CSS (Wypośrodkowanie metryk)
+# 5. STYLIZACJA CSS (Zwiększona czcionka metryk)
 # ==========================================================
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
-    /* Styl przycisków */
     .stButton button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; text-transform: uppercase !important;
         font-size: 0.8rem !important; width: 100%;
     }
     
-    /* Metryki - WYPOŚRODKOWANIE LICZB */
+    /* KONFIGURACJA METRYK */
     [data-testid="stMetric"] { 
         background-color: white !important; border-top: 4px solid #eab308 !important; 
-        border-radius: 8px !important; padding: 10px !important; 
+        border-radius: 8px !important; padding: 15px !important; 
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         text-align: center !important;
     }
+    
+    /* Zwiększona czcionka wartości (liczb) */
     [data-testid="stMetricValue"] > div {
         display: flex !important;
         justify-content: center !important;
-        font-weight: 800 !important;
+        font-weight: 900 !important;
+        font-size: 2.2rem !important; /* Poprzednio ok. 1.6rem */
+        color: #1e293b !important;
     }
+    
+    /* Zwiększona czcionka etykiet (napisów na górze) */
     [data-testid="stMetricLabel"] > div {
         display: flex !important;
         justify-content: center !important;
+        font-size: 1.1rem !important; /* Poprzednio ok. 0.8rem */
+        font-weight: 600 !important;
+        color: #334155 !important;
     }
 
     .op-footer { text-align: center; color: #94a3b8; border-top: 1px solid #334155; padding-top: 15px; margin-top: 20px; font-size: 0.8rem; }
@@ -155,6 +163,7 @@ if not df.empty:
     m1.metric("📋 Razem", len(df))
     if 'DNI' in df.columns:
         df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
+        # Zgodnie z instrukcją: -2 to dwa dni do realizacji, wartości dodatnie to miniony czas
         m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
     else: m2.metric("Status", "Aktywne")
     m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
