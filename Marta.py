@@ -1,8 +1,4 @@
 import streamlit as st
-st.error("🔥 TEST – TEN KOD DZIAŁA")
-st.stop()
-st.error("🔥 APLIKACJA URUCHOMIONA – TEST")
-import streamlit as st
 import gspread
 import pandas as pd
 from datetime import datetime
@@ -155,6 +151,7 @@ with st.sidebar:
     if st.button("➕ DODAJ ZADANIE"):
         dodaj_zadanie()
     st.markdown(f"Zalogowany: **{user}**")
+
 
 
 
