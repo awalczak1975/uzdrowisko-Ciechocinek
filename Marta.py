@@ -123,7 +123,7 @@ def generuj_kalendarz_html(df_zadania, user):
     return html + "</tbody></table></div>"
 
 # ==========================================================
-# 4. SIDEBAR (PRZYWRÓCONE EMOTKI STATUSU)
+# 4. SIDEBAR (NAPRAWIONE IKONY SPÓJNE Z METRYKAMI)
 # ==========================================================
 df_biez = pobierz_df("Zadania bieżące")
 df_zreal = pobierz_df("Zadania zrealizowane")
@@ -152,12 +152,11 @@ with st.sidebar:
     if not df_biez.empty:
         df_side = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
         for _, r in df_side.head(5).iterrows():
-            # Logika ikonek statusu oparta na kolumnie DNI
+            # SPÓJNA LOGIKA: Jeśli DNI >= -2 (Pilne) -> 🔴, w przeciwnym razie -> 🟢
             try:
-                dni_val = float(r.get('DNI', 0))
-                # Jeśli dni na plusie (minął czas) lub 0 (dzisiaj) -> 🔴
-                # Jeśli dni na minusie (jeszcze czas) -> 🟢
-                status_icon = "🔴" if dni_val >= 0 else "🟢"
+                dni_val = pd.to_numeric(r.get('DNI', 0), errors='coerce')
+                # Zadanie pilne (termin za 2 dni lub minął) = 🔴
+                status_icon = "🔴" if dni_val >= -2 else "🟢"
             except:
                 status_icon = "⚪"
                 
@@ -176,6 +175,7 @@ for i, kat in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy S
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("📋 Razem", len(df))
         if not df.empty and 'DNI' in df.columns:
+            # Identyczna logika filtrowania dla kafelka "Pilne"
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
         m3.metric("✅ Zrealizowane", len(df_zreal))
