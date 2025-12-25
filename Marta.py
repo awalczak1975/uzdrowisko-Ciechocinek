@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA
+# 1. KONFIGURACJA I STYLIZACJA (STOPKA I UKŁAD)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="globalrefresh")
@@ -17,7 +17,7 @@ LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocine
 
 st.markdown("""
     <style>
-    .block-container { padding-top: 1rem !important; }
+    .block-container { padding-top: 1rem !important; padding-bottom: 3rem !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
     
     .logo-container { text-align: center; margin-top: -30px !important; margin-bottom: 20px !important; }
@@ -30,39 +30,26 @@ st.markdown("""
         height: 46px !important; margin-bottom: 5px !important;
     }
 
-    /* WYŚRODKOWANIE LICZB W KAFELKACH */
-    [data-testid="stMetricValue"] > div { 
-        display: flex !important; 
-        justify-content: center !important; 
-        color: #eab308 !important; 
-        font-weight: 900 !important; 
-        font-size: 2.2rem !important;
-    }
-    [data-testid="stMetricLabel"] > div { 
-        display: flex !important; 
-        justify-content: center !important; 
-        color: white !important; 
-        font-weight: 600 !important;
-    }
-    [data-testid="stMetric"] { 
-        background-color: #1e293b !important; 
-        border-top: 4px solid #eab308 !important; 
-        border-radius: 10px !important; 
-        padding: 10px !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    }
+    /* KAFELKI METRYK */
+    [data-testid="stMetricValue"] > div { display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }
+    [data-testid="stMetricLabel"] > div { display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }
+    [data-testid="stMetric"] { background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; padding: 10px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
 
     /* ZAKŁADKI GÓRNE */
-    button[data-baseweb="tab"] {
-        font-size: 1.1rem !important; font-weight: 700 !important;
-        color: #1e293b !important; background-color: #e2e8f0 !important;
-        border-radius: 8px 8px 0 0 !important; margin-right: 5px !important;
-        padding: 10px 25px !important; border: 1px solid #cbd5e1 !important;
+    button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; margin-right: 5px !important; padding: 10px 25px !important; border: 1px solid #cbd5e1 !important; }
+    button[data-baseweb="tab"][aria-selected="true"] { color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }
+
+    /* NOWA STOPKA STRONY GŁÓWNEJ */
+    .main-footer {
+        width: 100%;
+        text-align: center;
+        padding: 20px 0;
+        margin-top: 40px;
+        border-top: 1px solid #e2e8f0;
+        color: #64748b;
+        font-size: 0.85rem;
     }
-    button[data-baseweb="tab"][aria-selected="true"] {
-        color: white !important; background-color: #1e293b !important; 
-        border-bottom: 4px solid #eab308 !important; 
-    }
+    .footer-brand { color: #1e293b; font-weight: 700; }
 
     .sidebar-footer { position: fixed; bottom: 10px; width: 240px; text-align: center; color: #94a3b8; font-size: 0.75rem; }
     </style>
@@ -72,10 +59,7 @@ st.markdown("""
 # 2. FUNKCJE TECHNICZNE
 # ==========================================================
 def polacz():
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(
-        st.secrets["gcp_service_account"], 
-        ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    )
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
     return gspread.authorize(creds)
 
 def pobierz_df(zakladka):
@@ -133,12 +117,9 @@ df_total = pd.concat([df_biezace, df_slawek])
 with st.sidebar:
     st.markdown(f'<div class="logo-container"><a href="?u={u}&k={k}" target="_self"><img src="{LOGO_URL}"></a></div>', unsafe_allow_html=True)
     st.markdown('<div style="border-bottom:1px solid #334155; margin:5px 0 10px 0;"></div>', unsafe_allow_html=True)
-    
     if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): st.info("Dodaj zadanie w Arkuszu.")
     if st.button("🔄 ODŚWIEŻ SYSTEM", use_container_width=True): st.cache_data.clear(); st.rerun()
-    
     st.components.v1.html(generuj_kalendarz_html(df_total), height=195)
-    
     st.markdown("<p style='color:white; font-weight:bold; margin-bottom:5px; font-size:0.9rem;'>📅 Nadchodzące terminy:</p>", unsafe_allow_html=True)
     df_total['DNI_N'] = pd.to_numeric(df_total['DNI'], errors='coerce').fillna(-999)
     nadchodzace = df_total[df_total['DNI_N'] >= -2].sort_values(by='DEADLINE').head(3)
@@ -147,7 +128,7 @@ with st.sidebar:
     st.markdown(f'<div class="sidebar-footer">Zalogowany: <b>{zalogowany}</b></div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (POPRAWIONE ZAKŁADKI)
+# 4. WIDOK GŁÓWNY
 # ==========================================================
 kat_list = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "🔴 CZAT"]
 tabs = st.tabs(kat_list)
@@ -157,21 +138,23 @@ for i, kat in enumerate(kat_list[:-1]):
         df = pobierz_df(kat)
         if not df.empty:
             df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(-999)
-            
-            # CZTERY WYŚRODKOWANE KAFELKI
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("📋 Razem", len(df))
             m2.metric("🔥 Pilne (-2+)", len(df[df['DNI_N'] >= -2]))
             m3.metric("✅ Zrealizowane", len(df_zrealizowane))
             m4.metric("🕒 Ostatnia aktualizacja", datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%H:%M"))
-            
             df.insert(0, "S", df['DNI_N'].apply(lambda x: "🚨" if x >= -2 else ("⚪" if x == -999 else "✅")))
             edytowane = st.data_editor(df, use_container_width=True, hide_index=True, height=750, key=f"ed_{kat}")
-            
             if st.button(f"💾 ZAPISZ ZMIANY: {kat.upper()}", key=f"btn_{kat}"):
                 if zapisz_df(edytowane.drop(columns=["S", "DNI_N"]), kat):
                     st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
 
-with tabs[-1]:
-    st.subheader("🔴 Komunikacja")
-    st.info("System czatu w trakcie synchronizacji...")
+# DYNAMICZNA STOPKA NA DOLE STRONY
+now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
+st.markdown(f"""
+    <div class="main-footer">
+        <span class="footer-brand">UZDROWISKO CIECHOCINEK S.A.</span><br>
+        Dział Techniczny | System Zarządzania Zadaniami &copy; {now_pl.year}<br>
+        <small>Ostatnie odświeżenie danych: {now_pl.strftime('%d.%m.%Y %H:%M')}</small>
+    </div>
+""", unsafe_allow_html=True)
