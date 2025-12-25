@@ -58,33 +58,43 @@ def pobierz_dane_final(nazwa_zakladki):
         dane_raw = ws.get_all_values()
         if not dane_raw or len(dane_raw) < 1: return pd.DataFrame()
         df = pd.DataFrame(dane_raw[1:], columns=dane_raw[0])
-        # Filtrujemy puste wiersze (tylko kolumna A)
         df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
         return df
     except:
         return pd.DataFrame()
 
 # ==========================================================
-# 5. STYLIZACJA CSS (Przywrócenie kolorów)
+# 5. STYLIZACJA CSS (Wypośrodkowanie metryk)
 # ==========================================================
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem !important; }
-    /* Sidebar - Granat i Żółty pasek */
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
-    /* Przyciski - Styl nowoczesny */
+    
+    /* Styl przycisków */
     .stButton button {
         background-color: #334155 !important; color: white !important;
         border: 1px solid #94a3b8 !important; text-transform: uppercase !important;
         font-size: 0.8rem !important; width: 100%;
     }
-    /* Metryki - Białe ramki z żółtym akcentem */
+    
+    /* Metryki - WYPOŚRODKOWANIE LICZB */
     [data-testid="stMetric"] { 
         background-color: white !important; border-top: 4px solid #eab308 !important; 
         border-radius: 8px !important; padding: 10px !important; 
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center !important;
     }
-    /* Stopka sidebaru */
+    [data-testid="stMetricValue"] > div {
+        display: flex !important;
+        justify-content: center !important;
+        font-weight: 800 !important;
+    }
+    [data-testid="stMetricLabel"] > div {
+        display: flex !important;
+        justify-content: center !important;
+    }
+
     .op-footer { text-align: center; color: #94a3b8; border-top: 1px solid #334155; padding-top: 15px; margin-top: 20px; font-size: 0.8rem; }
     </style>
     """, unsafe_allow_html=True)
@@ -95,8 +105,6 @@ st.markdown("""
 with st.sidebar:
     st.markdown("<h2 style='color: #0ea5e9; text-align:center;'>UZDROWISKO<br><span style='color:#eab308'>CIECHOCINEK</span></h2>", unsafe_allow_html=True)
     st.divider()
-    if st.button("➕ DODAJ NOWE ZADANIE"):
-        st.info("Funkcja dodawania w przygotowaniu dla nowej struktury...")
     if st.button("🔄 ODŚWIEŻ DANE"):
         st.cache_data.clear(); st.rerun()
     st.markdown(f"<div class='op-footer'>Zalogowany: <b>{zalogowany_uzytkownik}</b></div>", unsafe_allow_html=True)
@@ -108,7 +116,6 @@ st.markdown('<h3 style="text-align:center; color: #1e293b;">Centrum Zarządzania
 
 if 'widok' not in st.session_state: st.session_state['widok'] = 'biezace'
 
-# Przyciski przełączania (Dynamiczne kolumny)
 if czy_andrzej:
     c1, c2, c3 = st.columns(3)
     with c1: 
@@ -128,13 +135,13 @@ mapa = {'biezace': "Zadania bieżące", 'zrealizowane': "Zadania zrealizowane", 
 df = pobierz_dane_final(mapa[st.session_state['widok']])
 
 if not df.empty:
-    # Sortowanie chronologiczne
+    # Sortowanie
     kol_data = "DEADLINE" if st.session_state['widok'] == 'slawek' else "TERMIN"
     if kol_data in df.columns:
         df['tmp'] = pd.to_datetime(df[kol_data], dayfirst=True, errors='coerce')
         df = df.sort_values(by='tmp', ascending=True).drop(columns=['tmp'])
 
-    # Filtry uprawnień
+    # Filtry
     if not czy_admin:
         if zalogowany_uzytkownik == "Sławek":
             if st.session_state['widok'] != 'slawek' and 'OSOBA' in df.columns:
@@ -152,7 +159,6 @@ if not df.empty:
     else: m2.metric("Status", "Aktywne")
     m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
 
-    # Wyświetlanie tabeli
     st.data_editor(df, use_container_width=True, hide_index=True, height=650, column_config={"DNI_N": None})
 else:
     st.info(f"Brak zadań w: {mapa[st.session_state['widok']]}")
