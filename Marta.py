@@ -7,7 +7,7 @@ import requests
 from streamlit_autorefresh import st_autorefresh
 
 # ==========================================================
-# 1. KONFIGURACJA STRONY
+# 1. KONFIGURACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=300000, key="datarefresh")
@@ -19,10 +19,9 @@ KLUCZE_DOSTEPU = {"Andrzej": "8800", "Marta": "1234", "Rafał": "5566", "Agata":
 TELEGRAM_TOKEN = "7547926145:AAHnOIdm6n6_uK03Kk_o0-U0q2F8C_xLpY8"
 TELEGRAM_CHAT_ID = "543788771"
 NAZWA_ARKUSZA = "Marta-Dział Techniczny"
-LISTA_OSOB = list(KLUCZE_DOSTEPU.keys())
 
 # ==========================================================
-# 3. WERYFIKACJA UŻYTKOWNIKA
+# 3. WERYFIKACJA
 # ==========================================================
 user_url = st.query_params.get("u", "")
 key_url = st.query_params.get("k", "")
@@ -32,11 +31,11 @@ if user_url in KLUCZE_DOSTEPU and KLUCZE_DOSTEPU[user_url] == key_url:
     czy_andrzej = (user_url == "Andrzej")
     czy_admin = (user_url in ["Andrzej", "Marta"])
 else:
-    st.error("❌ BŁĄD DOSTĘPU: Nieprawidłowy link lub klucz.")
+    st.error("❌ BŁĄD DOSTĘPU")
     st.stop()
 
 # ==========================================================
-# 4. FUNKCJE POMOCNICZE
+# 4. FUNKCJA POBIERANIA (ULEPSZONA)
 # ==========================================================
 def polacz_z_google():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
@@ -45,115 +44,85 @@ def polacz_z_google():
     )
     return gspread.authorize(creds)
 
-def pobierz_dane(zakladka):
+def pobierz_dane_final(nazwa_zakladki):
     try:
         client = polacz_z_google()
-        # Próba otwarcia arkusza z ignorowaniem spacji na końcach nazwy
-        sheet_list = client.open(NAZWA_ARKUSZA).worksheets()
-        target_ws = None
-        for ws in sheet_list:
-            if ws.title.strip() == zakladka.strip():
-                target_ws = ws
-                break
+        # Otwieramy arkusz i szukamy zakładki (bezwzględnie)
+        wb = client.open(NAZWA_ARKUSZA)
+        ws = wb.worksheet(nazwa_zakladki)
         
-        if not target_ws:
+        # Pobieramy wszystkie wartości jako tekst (najbardziej odporna metoda)
+        dane_raw = ws.get_all_values()
+        
+        if not dane_raw or len(dane_raw) < 1:
             return pd.DataFrame()
-
-        dane = target_ws.get('A1:E500') 
-        if not dane or len(dane) < 2: 
-            return pd.DataFrame()
-            
-        return pd.DataFrame(dane[1:], columns=dane[0])
+        
+        # Tworzymy tabelę: pierwszy wiersz to nagłówki, reszta to dane
+        headers = dane_raw[0]
+        data = dane_raw[1:]
+        
+        df = pd.DataFrame(data, columns=headers)
+        
+        # Usuwamy całkowicie puste wiersze
+        df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
+        return df
     except Exception as e:
+        st.error(f"Problem z zakładką '{nazwa_zakladki}': {e}")
         return pd.DataFrame()
 
 # ==========================================================
-# 5. STYLIZACJA CSS
-# ==========================================================
-st.markdown("""
-    <style>
-    .block-container { padding-top: 1rem !important; }
-    [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }
-    .stButton button { background-color: #334155 !important; color: white !important; border: 1px solid #94a3b8 !important; text-transform: uppercase !important; font-size: 0.8rem !important; }
-    [data-testid="stMetric"] { background-color: white !important; border-top: 4px solid #eab308 !important; border-radius: 8px !important; padding: 10px !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# ==========================================================
-# 6. DIALOG I SIDEBAR
-# ==========================================================
-@st.dialog("➕ Dodaj nowe zadanie")
-def dodaj_zadanie_dialog():
-    with st.form("form_nowe"):
-        tresc = st.text_area("Treść zadania:")
-        osoba = st.selectbox("Osoba:", ["Brak"] + LISTA_OSOB)
-        termin = st.date_input("Termin:", datetime.now())
-        if st.form_submit_button("ZAPISZ"):
-            try:
-                client = polacz_z_google()
-                if osoba == "Sławek":
-                    sheet = client.open(NAZWA_ARKUSZA).worksheet("Terminy Sławka")
-                    sheet.append_row([tresc, "Sławek", termin.strftime("%d.%m.%Y"), "", ""])
-                else:
-                    sheet = client.open(NAZWA_ARKUSZA).worksheet("Zadania bieżące")
-                    sheet.append_row([tresc, osoba if osoba != "Brak" else "", termin.strftime("%d.%m.%Y"), "", "W toku"])
-                st.success("Zapisano!"); st.cache_data.clear(); st.rerun()
-            except: st.error("Błąd zapisu")
-
-with st.sidebar:
-    st.markdown("<h3 style='color: #0ea5e9; text-align:center;'>UZDROWISKO CIECHOCINEK</h3>", unsafe_allow_html=True)
-    if st.button("➕ DODAJ NOWE ZADANIE", use_container_width=True): dodaj_zadanie_dialog()
-    if st.button("🔄 ODŚWIEŻ DANE", use_container_width=True): st.cache_data.clear(); st.rerun()
-    st.markdown(f"<div style='text-align:center; color:#94a3b8; margin-top:30px;'>Zalogowany: {zalogowany_uzytkownik}</div>", unsafe_allow_html=True)
-
-# ==========================================================
-# 7. WIDOK GŁÓWNY
+# 5. UI I NAWIGACJA
 # ==========================================================
 if 'widok' not in st.session_state: st.session_state['widok'] = 'biezace'
 
+# Przyciski główne
 if czy_andrzej:
     c1, c2, c3 = st.columns(3)
+    with c1: 
+        if st.button("📋 BIEŻĄCE", use_container_width=True): st.session_state['widok'] = 'biezace'
+    with c2: 
+        if st.button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
+    with c3: 
+        if st.button("🔧 SŁAWEK", use_container_width=True): st.session_state['widok'] = 'slawek'
 else:
     c1, c2 = st.columns(2)
+    with c1: 
+        if st.button("📋 BIEŻĄCE", use_container_width=True): st.session_state['widok'] = 'biezace'
+    with c2: 
+        if st.button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
 
-with c1:
-    if st.button("📋 BIEŻĄCE", use_container_width=True): st.session_state['widok'] = 'biezace'
-with c2:
-    if st.button("✅ ZREALIZOWANE", use_container_width=True): st.session_state['widok'] = 'zrealizowane'
-if czy_andrzej:
-    with c3:
-        if st.button("🔧 SŁAWEK", use_container_width=True): st.session_state['widok'] = 'slawek'
+# Wybór danych
+mapa = {'biezace': "Zadania bieżące", 'zrealizowane': "Zadania zrealizowane", 'slawek': "Terminy Sławka"}
+df = pobierz_dane_final(mapa[st.session_state['widok']])
 
-mapy = {'biezace': "Zadania bieżące", 'zrealizowane': "Zadania zrealizowane", 'slawek': "Terminy Sławka"}
-zakladka_nazwa = mapy[st.session_state['widok']]
-df = pobierz_dane(zakladka_nazwa)
+# ==========================================================
+# 6. WYŚWIETLANIE
+# ==========================================================
+st.markdown(f"### Widok: {mapa[st.session_state['widok']]}")
 
 if not df.empty:
-    # Czyszczenie wierszy
-    df = df[df.iloc[:, 0].astype(str).str.strip() != ""]
+    # Filtrowanie dla osób niebędących adminem
+    if not czy_admin:
+        if zalogowany_uzytkownik == "Sławek":
+            # Sławek widzi tylko swoje w ogólnych, ale w swojej zakładce wszystko
+            if st.session_state['widok'] != 'slawek' and 'OSOBA' in df.columns:
+                df = df[df['OSOBA'] == "Sławek"]
+        else:
+            # Rafał/Agata nie widzą zadań Sławka w ogólnych listach
+            if 'OSOBA' in df.columns:
+                df = df[df['OSOBA'] != "Sławek"]
 
-    # Sortowanie (szukamy dowolnej kolumny z datą)
-    cols = [c for c in df.columns if c in ['TERMIN', 'DEADLINE', 'DATA']]
-    if cols:
-        df['temp_date'] = pd.to_datetime(df[cols[0]], dayfirst=True, errors='coerce')
-        df = df.sort_values(by='temp_date', ascending=True).drop(columns=['temp_date'])
-
-    # Filtry uprawnień
-    if zalogowany_uzytkownik == "Sławek":
-        if st.session_state['widok'] != 'slawek':
-            df = df[df['OSOBA'] == "Sławek"]
-    elif zalogowany_uzytkownik not in ["Andrzej", "Marta"]:
-        df = df[df.get('OSOBA', '') != "Sławek"]
-
-    # Metryki
-    m1, m2, m3 = st.columns(3)
-    m1.metric("📋 Razem", len(df))
-    if 'DNI' in df.columns:
-        df['DNI_N'] = pd.to_numeric(df['DNI'], errors='coerce').fillna(0)
-        m2.metric("🔥 Pilne/Spóźnione", len(df[df['DNI_N'] >= -2]))
-    else: m2.metric("Status", "Aktywne")
-    m3.metric("🕒 Odświeżono", datetime.now().strftime("%H:%M"))
-
-    st.data_editor(df, use_container_width=True, hide_index=True, height=650, column_config={"DNI_N": None})
+    # Wyświetlanie metryki "Razem"
+    st.metric("Liczba zadań", len(df))
+    
+    # Wyświetlanie tabeli (uproszczone, by uniknąć błędów)
+    st.data_editor(df, use_container_width=True, hide_index=True, height=600)
 else:
-    st.info(f"Brak zadań w: {zakladka_nazwa}")
+    st.info("Brak danych do wyświetlenia w tej zakładce. Sprawdź, czy w Google Sheets są wpisane zadania.")
+
+with st.sidebar:
+    st.markdown("### PANEL STEROWANIA")
+    if st.button("🔄 ODŚWIEŻ ARKUSZ"):
+        st.cache_data.clear()
+        st.rerun()
+    st.write(f"Zalogowany: {zalogowany_uzytkownik}")
