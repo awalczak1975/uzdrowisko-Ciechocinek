@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (TOTALNE WYMUSZENIE)
+# 1. KONFIGURACJA I EKSTREMALNA STYLIZACJA WIZUALNA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -40,7 +40,8 @@ st.markdown(f"""
     button[data-baseweb="tab"] {{ font-size: 1.0rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #cbd5e1 !important; border-radius: 8px 8px 0 0 !important; padding: 8px 25px !important; margin-right: 4px !important; }}
     button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #0f172a !important; border-bottom: 5px solid #ef4444 !important; }}
     
-    /* EKSTREMALNE WYMUSZENIE KOLORÓW NAGŁÓWKA TABELI */
+    /* ABSOLUTNE WYMUSZENIE KOLORÓW NAGŁÓWKA TABELI */
+    div[data-testid="stDataFrame"] thead tr th,
     div[data-testid="stDataFrameHeaderCell"] {{
         background-color: #1e293b !important;
         border-bottom: 1px solid #eab308 !important;
