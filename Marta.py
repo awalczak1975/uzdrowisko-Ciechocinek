@@ -65,14 +65,18 @@ def pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True):
         df = df.iloc[:, :5].copy() 
         df = df[df.iloc[:, 2].str.strip() != ""].copy()
         
-        # LOGIKA EMOTEK: -2 dni to -2, miniony czas to wartości dodatnie
         def wstaw_emotke(row):
             try:
+                # Konwersja DNI na liczbę
                 dni = pd.to_numeric(str(row.iloc[4]).replace(',', '.'), errors='coerce')
                 tresc = str(row.iloc[2])
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
-                # Pilne: od -2 w górę (czyli -2, -1, 0, 1, 2...)
-                return f"🔥 {tresc}" if not pd.isna(dni) and dni >= -2 else f"⏳ {tresc}"
+                
+                # KLUCZOWA POPRAWKA: Pilne to -2 i wszystko powyżej (minione dni)
+                if not pd.isna(dni) and dni >= -2:
+                    return f"🔥 {tresc}"
+                else:
+                    return f"⏳ {tresc}"
             except: return str(row.iloc[2])
 
         df.iloc[:, 2] = df.apply(wstaw_emotke, axis=1)
@@ -86,7 +90,7 @@ def pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR (PRZYWRÓCONE ZADANIA)
+# 3. SIDEBAR (LOGO, KALENDARZ, NADCHODZĄCE)
 # ==========================================================
 df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj_dla_uzytkownika=True)
 PERSONAL_URL = f"{APP_URL}?u={zalogowany}&k={USERS[zalogowany]}"
@@ -118,16 +122,18 @@ with st.sidebar:
         html_cal += '</tr>'
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
 
-    # --- PRZYWRÓCONA SEKCJA NADCHODZĄCYCH ---
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_sidebar.empty:
+        # Wyświetlamy 4 najbliższe zadania w panelu bocznym
         for _, r in df_sidebar.head(4).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[3]}</b>: {str(r.iloc[2])[:28]}</div>', unsafe_allow_html=True)
+    else:
+        st.caption("Brak zadań.")
 
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (POPRAWNE LICZNIKI)
+# 4. WIDOK GŁÓWNY (GLOBALNE ZREALIZOWANE I METRYKI)
 # ==========================================================
 df_zreal_global = pobierz_arkusz("Zadania zrealizowane", filtruj_dla_uzytkownika=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
@@ -142,16 +148,23 @@ for i, nazwa in enumerate(lista_zakladek):
     with tabs[i]:
         df_tab = pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True)
         m1, m2, m3, m4 = st.columns(4)
+        
         count_razem = len(df_tab)
-        # Pilne: wartość DNI >= -2
-        pilne = len(df_tab[pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.extract(r'(-?\d+)')[0], errors='coerce').fillna(-999) >= -2]) if not df_tab.empty else 0
+        # Pilne: wartość DNI >= -2 (w tym wszystkie dodatnie)
+        pilne_count = 0
+        if not df_tab.empty:
+            vals = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.'), errors='coerce').fillna(-999)
+            pilne_count = len(df_tab[vals >= -2])
         
         m1.metric("📋 Razem", count_razem)
-        m2.metric("🔥 Pilne (-2+)", pilne)
+        m2.metric("🔥 Pilne (-2+)", pilne_count)
         m3.metric("✅ Zrealizowane", len(df_zreal_global))
         m4.metric("🕒 Aktualizacja", now.strftime("%H:%M"))
+        
         st.markdown("---")
-        if not df_tab.empty: st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
-        else: st.info("Brak zadań.")
+        if not df_tab.empty:
+            st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
+        else:
+            st.info("Brak zadań.")
 
 st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now.strftime("%d.%m.%Y")}</span></div>', unsafe_allow_html=True)
