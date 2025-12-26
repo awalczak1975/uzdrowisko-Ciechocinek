@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. PEŁNA STYLIZACJA (PRZYWRÓCENIE KAFELKÓW I ZAKŁADEK)
+# 1. PEŁNA STYLIZACJA (PODNIESIONA ETYKIETA ZALOGOWANEGO)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -37,8 +37,19 @@ st.markdown(f"""
     .term-box {{ background: #334155; padding: 14px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 12px; color: white; font-size: 0.75rem; line-height: 1.4; }}
     .sidebar-header {{ color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; margin-top: 15px; }}
     
-    /* ETYKIETA ZALOGOWANEGO */
-    .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.8rem; text-align: center; margin-top: 20px; border: 2px solid white; }}
+    /* PODNIESIONA ETYKIETA ZALOGOWANEGO */
+    .user-info-footer {{ 
+        background-color: #eab308 !important; 
+        color: #1e293b !important; 
+        padding: 10px; 
+        border-radius: 8px; 
+        font-weight: 900; 
+        font-size: 0.8rem; 
+        text-align: center; 
+        margin-top: 10px; /* Zmniejszono z 20px, aby podnieść element */
+        margin-bottom: 15px; /* Dodano margines dolny dla oddechu */
+        border: 2px solid white; 
+    }}
 
     /* WYŚRODKOWANIE METRYK (KAFELKI GÓRNE) */
     [data-testid="stMetricValue"] > div {{ 
@@ -62,7 +73,6 @@ st.markdown(f"""
         border-radius: 12px !important; 
         padding: 15px !important;
         text-align: center !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
     }}
 
     /* STYLIZACJA ZAKŁADEK */
@@ -146,7 +156,7 @@ with st.sidebar:
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()} WALCZAK</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (PRZYWRÓCONE KAFELKI)
+# 4. WIDOK GŁÓWNY
 # ==========================================================
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "CZAT 🔴"])
 count_zreal = df_zreal_raw.iloc[:, 0].replace('', pd.NA).dropna().count() if not df_zreal_raw.empty else 0
@@ -154,8 +164,6 @@ count_zreal = df_zreal_raw.iloc[:, 0].replace('', pd.NA).dropna().count() if not
 for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
     with tabs[i]:
         df_tab = pobierz_arkusz(nazwa)
-        
-        # PRZYWRÓCONE KAFELKI GÓRNEGO PODSUMOWANIA
         m1, m2, m3, m4 = st.columns(4)
         if not df_tab.empty:
             count_razem = df_tab.iloc[:, 0].replace('', pd.NA).dropna().count()
@@ -166,14 +174,12 @@ for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy
             m3.metric("✅ Zrealizowane", int(count_zreal))
             m4.metric("🕒 Aktualizacja", now.strftime("%H:%M"))
             
-            # Tabela zadań
             st.markdown("---")
             st.data_editor(df_tab.drop(columns=['DNI_N']), use_container_width=True, hide_index=True, height=700)
         else:
-            m1.metric("📋 Razem", 0)
-            m2.metric("🔥 Pilne", 0)
+            m1.metric("📋 Razem", 0); m2.metric("🔥 Pilne", 0)
             m3.metric("✅ Zrealizowane", int(count_zreal))
             m4.metric("🕒 Aktualizacja", now.strftime("%H:%M"))
-            st.info("Brak aktywnych zadań w tym arkuszu.")
+            st.info("Brak aktywnych zadań.")
 
 st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now.strftime("%d.%m.%Y")}</span></div>', unsafe_allow_html=True)
