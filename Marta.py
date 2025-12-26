@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. STYLIZACJA
+# 1. STYLIZACJA I KONFIGURACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -30,16 +30,18 @@ st.markdown(f"""
     .term-box {{ background: #334155; padding: 12px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 10px; color: white; font-size: 0.75rem; line-height: 1.4; }}
     .sidebar-header {{ color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; margin-top: 15px; }}
     .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.85rem; text-align: center; margin-top: 10px; margin-bottom: 20px; border: 2px solid white; }}
+    
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }}
     [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; }}
     [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 15px !important; text-align: center !important; }}
+    
     button[data-baseweb="tab"] {{ font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 30px !important; border: none !important; }}
     button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }}
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH (NAPRAWA LICZENIA PILNYCH)
+# 2. LOGIKA DANYCH (5 KOLUMN I FILTROWANIE)
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -65,20 +67,25 @@ def pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True):
         df = df.iloc[:, :5].copy() 
         df = df[df.iloc[:, 2].str.strip() != ""].copy()
         
+        # LOGIKA EMOTEK NA POCZĄTKU TREŚCI
         def wstaw_emotke(row):
             try:
-                # Konwersja DNI na liczbę
-                dni = pd.to_numeric(str(row.iloc[4]).replace(',', '.'), errors='coerce')
+                # Kolumna 5 (DNI) - poprawiona konwersja
+                dni_val = str(row.iloc[4]).replace(',', '.')
+                dni = pd.to_numeric(dni_val, errors='coerce')
                 tresc = str(row.iloc[2])
-                if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
                 
-                # KLUCZOWA POPRAWKA: Pilne to -2 i wszystko powyżej (minione dni)
+                if "zrealizowane" in nazwa.lower():
+                    return f"✅ {tresc}"
+                
+                # ZADANIE PILNE: od -2 w górę (w tym 0 i wszystkie po terminie na plusie)
                 if not pd.isna(dni) and dni >= -2:
                     return f"🔥 {tresc}"
-                else:
-                    return f"⏳ {tresc}"
-            except: return str(row.iloc[2])
+                return f"⏳ {tresc}"
+            except:
+                return str(row.iloc[2])
 
+        # Podmiana treści zadania na wersję z ikoną
         df.iloc[:, 2] = df.apply(wstaw_emotke, axis=1)
 
         if filtruj_dla_uzytkownika:
@@ -90,9 +97,9 @@ def pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR (LOGO, KALENDARZ, NADCHODZĄCE)
+# 3. SIDEBAR (LOGOTYP, KALENDARZ I ZADANIA)
 # ==========================================================
-df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj_dla_uzytkownika=True)
+df_side = pobierz_arkusz("Zadania bieżące", filtruj_dla_uzytkownika=True)
 PERSONAL_URL = f"{APP_URL}?u={zalogowany}&k={USERS[zalogowany]}"
 
 with st.sidebar:
@@ -106,8 +113,8 @@ with st.sidebar:
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_zadaniem = set()
-    if not df_sidebar.empty:
-        dt_deadlines = pd.to_datetime(df_sidebar.iloc[:, 3], errors='coerce', dayfirst=True)
+    if not df_side.empty:
+        dt_deadlines = pd.to_datetime(df_side.iloc[:, 3], errors='coerce', dayfirst=True)
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
     html_cal = f'<div class="cal-container"><table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
@@ -122,20 +129,18 @@ with st.sidebar:
         html_cal += '</tr>'
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
 
+    # NAPRAWA WYŚWIETLANIA POD KALENDARZEM
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
-    if not df_sidebar.empty:
-        # Wyświetlamy 4 najbliższe zadania w panelu bocznym
-        for _, r in df_sidebar.head(4).iterrows():
-            st.markdown(f'<div class="term-box"><b>{r.iloc[3]}</b>: {str(r.iloc[2])[:28]}</div>', unsafe_allow_html=True)
-    else:
-        st.caption("Brak zadań.")
+    if not df_side.empty:
+        for _, r in df_side.head(4).iterrows():
+            st.markdown(f'<div class="term-box"><b>{r.iloc[3]}</b>: {str(r.iloc[2])}</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (GLOBALNE ZREALIZOWANE I METRYKI)
+# 4. WIDOK GŁÓWNY (GLOBALNE LICZNIKI I TABELA)
 # ==========================================================
-df_zreal_global = pobierz_arkusz("Zadania zrealizowane", filtruj_dla_uzytkownika=False)
+df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj_dla_uzytkownika=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
 if zalogowany == "Andrzej": lista_zakladek.append("Terminy Sławka")
 lista_zakladek.append("CZAT 🔴")
@@ -148,17 +153,17 @@ for i, nazwa in enumerate(lista_zakladek):
     with tabs[i]:
         df_tab = pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True)
         m1, m2, m3, m4 = st.columns(4)
-        
         count_razem = len(df_tab)
-        # Pilne: wartość DNI >= -2 (w tym wszystkie dodatnie)
+        
+        # NAPRAWA LICZNIKA PILNYCH (>= -2)
         pilne_count = 0
         if not df_tab.empty:
             vals = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.'), errors='coerce').fillna(-999)
             pilne_count = len(df_tab[vals >= -2])
         
         m1.metric("📋 Razem", count_razem)
-        m2.metric("🔥 Pilne (-2+)", pilne_count)
-        m3.metric("✅ Zrealizowane", len(df_zreal_global))
+        m2.metric("🔥 PILNE (-2+)", pilne_count)
+        m3.metric("✅ Zrealizowane", len(df_zreal_full))
         m4.metric("🕒 Aktualizacja", now.strftime("%H:%M"))
         
         st.markdown("---")
