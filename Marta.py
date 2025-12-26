@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. PEŁNA STYLIZACJA (KALENDARZ I PANEL)
+# 1. PEŁNA STYLIZACJA (NAPRAWA SIDEBARU)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -24,19 +24,25 @@ st.markdown(f"""
     .logo-link {{ display: block; text-align: center; margin-top: -65px !important; margin-bottom: 15px !important; cursor: pointer; }}
     .logo-link img {{ width: 185px; }}
     
-    /* STYLIZACJA KALENDARZA */
+    /* KALENDARZ */
     .cal-container {{ background: white; padding: 10px; border-radius: 8px; border: 2px solid #eab308; width: 100%; margin-bottom: 15px; }}
     .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 11px; color: #1e293b; }}
     .cal-table td {{ text-align: center; padding: 5px 1px; font-weight: 700; border-radius: 3px; }}
     .day-today {{ background-color: #eab308 !important; }}
     .day-task {{ color: #ef4444 !important; border: 1px solid #ef4444 !important; }}
 
-    .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.85rem; text-align: center; margin-top: 5px; margin-bottom: 20px; border: 2px solid white; }}
+    /* KAFELKI ZADAŃ W SIDEBARZE */
+    .term-box {{ background: #334155; padding: 12px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 10px; color: white; font-size: 0.75rem; line-height: 1.4; }}
+    .sidebar-header {{ color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; margin-top: 15px; }}
     
+    .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.85rem; text-align: center; margin-top: 10px; margin-bottom: 20px; border: 2px solid white; }}
+    
+    /* METRYKI */
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }}
     [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; }}
     [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 15px !important; text-align: center !important; }}
     
+    /* ZAKŁADKI */
     button[data-baseweb="tab"] {{ font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 30px !important; border: none !important; }}
     button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }}
     </style>
@@ -76,7 +82,7 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR (NAPRAWIONY KALENDARZ)
+# 3. SIDEBAR (NAPRAWIONY KALENDARZ I ZADANIA)
 # ==========================================================
 df_biez = pobierz_arkusz("Zadania bieżące", filtruj=True)
 PERSONAL_URL = f"{APP_URL}?u={zalogowany}&k={USERS[zalogowany]}"
@@ -88,12 +94,11 @@ with st.sidebar:
     with c2: 
         if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
     
-    # --- PRZYWRÓCONY KALENDARZ ---
-    st.markdown('<div style="color:#eab308; font-size:0.75rem; font-weight:800; text-transform:uppercase; margin-bottom:8px; margin-top:15px;">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
+    # 📅 KALENDARZ
+    st.markdown('<div class="sidebar-header">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     
-    # Logika kropek w kalendarzu
     dni_z_zadaniem = set()
     if not df_biez.empty and 'DEADLINE' in df_biez.columns:
         dt_deadlines = pd.to_datetime(df_biez['DEADLINE'], errors='coerce', dayfirst=True)
@@ -110,6 +115,14 @@ with st.sidebar:
                 html_cal += f'<td class="{cls}">{day}</td>'
         html_cal += '</tr>'
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
+
+    # 🕒 ZADANIA PONIŻEJ KALENDARZA
+    st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
+    if not df_biez.empty:
+        for _, r in df_biez.head(4).iterrows():
+            st.markdown(f'<div class="term-box"><b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
+    else:
+        st.caption("Brak nadchodzących zadań.")
 
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
@@ -134,7 +147,11 @@ for i, nazwa in enumerate(lista_zakladek):
         df_tab = pobierz_arkusz(nazwa, filtruj=True)
         m1, m2, m3, m4 = st.columns(4)
         count_razem = len(df_tab)
-        pilne = len(df_tab[pd.to_numeric(df_tab['DNI'], errors='coerce').fillna(-999) >= -2]) if not df_tab.empty else 0
+        
+        pilne = 0
+        if not df_tab.empty and 'DNI' in df_tab.columns:
+            df_tab['DNI_N'] = pd.to_numeric(df_tab['DNI'], errors='coerce').fillna(-999)
+            pilne = len(df_tab[df_tab['DNI_N'] >= -2])
         
         m1.metric("📋 Razem", count_razem)
         m2.metric("🔥 Pilne (-2+)", pilne)
@@ -143,7 +160,8 @@ for i, nazwa in enumerate(lista_zakladek):
         
         st.markdown("---")
         if not df_tab.empty:
-            st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
+            cols = [c for c in df_tab.columns if c != 'DNI_N']
+            st.data_editor(df_tab[cols], use_container_width=True, hide_index=True, height=700)
         else:
             st.info("Brak zadań.")
 
