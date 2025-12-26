@@ -28,7 +28,21 @@ st.markdown(f"""
     .day-task {{ color: #ef4444 !important; border: 2.5px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
     .term-box {{ background: #334155; padding: 12px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 10px; color: white; font-size: 0.75rem; }}
     .sidebar-header {{ color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; margin-top: 15px; }}
-    .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.85rem; text-align: center; margin-top: 10px; margin-bottom: 20px; border: 2px solid white; }}
+    
+    /* DELIKATNIE PODNIESIONA STOPKA UŻYTKOWNIKA */
+    .user-info-footer {{ 
+        background-color: #eab308 !important; 
+        color: #1e293b !important; 
+        padding: 10px; 
+        border-radius: 8px; 
+        font-weight: 900; 
+        font-size: 0.85rem; 
+        text-align: center; 
+        margin-top: 25px; 
+        margin-bottom: 40px; 
+        border: 2px solid white; 
+    }}
+    
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }}
     [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; }}
     [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 15px !important; }}
@@ -38,7 +52,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH (KLUCZOWE POPRAWKI)
+# 2. LOGIKA DANYCH
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -57,7 +71,6 @@ def pobierz_arkusz(nazwa, filtruj=True):
         ws = sh.worksheet(nazwa)
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
-        # Pobieramy kolumny A-E (0-4)
         df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :5].copy()
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
@@ -67,14 +80,13 @@ def pobierz_arkusz(nazwa, filtruj=True):
                 dni = pd.to_numeric(str(row.iloc[3]).replace(',', '.').strip(), errors='coerce')
                 tresc = str(row.iloc[0])
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
-                # Logika pilności: >= -2
+                # Pilne: -2 i więcej (spóźnienia są na plusie) [cite: 2025-12-22]
                 if not pd.isna(dni) and dni >= -2: return f"🔥 {tresc}"
                 return f"⏳ {tresc}"
             except: return str(row.iloc[0])
 
         df.iloc[:, 0] = df.apply(wstaw_emotke, axis=1)
         if filtruj:
-            # Kolumna OSOBA (index 4)
             col_osoba = df.iloc[:, 4].str.lower()
             if zalogowany == "Sławek": return df[col_osoba.str.contains("sławek", na=False)].copy()
             elif zalogowany in ["Rafał", "Agata"]: return df[~col_osoba.str.contains("sławek", na=False)].copy()
@@ -82,7 +94,7 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. LEWY PANEL (SIDEBAR) - GWARANTOWANY
+# 3. LEWY PANEL (SIDEBAR)
 # ==========================================================
 df_side = pobierz_arkusz("Zadania bieżące", filtruj=True)
 with st.sidebar:
@@ -95,10 +107,8 @@ with st.sidebar:
     st.markdown('<div class="sidebar-header">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
-    
     dni_z_zadaniem = set()
     if not df_side.empty:
-        # Skonwertuj kolumnę DEADLINE (index 2) na daty
         dt_deadlines = pd.to_datetime(df_side.iloc[:, 2], errors='coerce', dayfirst=True)
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
@@ -118,23 +128,23 @@ with st.sidebar:
     if not df_side.empty:
         for _, r in df_side.head(4).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[2]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
+    
+    # PODNIESIONY PASEK ZALOGOWANIA
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
 # 4. WIDOK GŁÓWNY
 # ==========================================================
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj=False)
-lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
-if zalogowany == "Andrzej": lista_zakladek.append("Terminy Sławka")
-lista_zakladek.append("CZAT 🔴")
-
+lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "CZAT 🔴"]
 tabs = st.tabs(lista_zakladek)
+
 for i, nazwa in enumerate(lista_zakladek):
     if nazwa == "CZAT 🔴":
         with tabs[i]: st.info("Czat aktywny.")
         continue
     with tabs[i]:
-        df_tab = pobierz_arkusz(nazwa, filtruj=True)
+        df_tab = pobierz_arkusz(nazwa, filtruj=(nazwa != "Zadania zrealizowane"))
         m1, m2, m3, m4 = st.columns(4)
         
         # LICZNIK PILNYCH: DNI (index 3) >= -2
@@ -148,4 +158,4 @@ for i, nazwa in enumerate(lista_zakladek):
         m3.metric("ZREALIZOWANE", len(df_zreal_full))
         m4.metric("AKTUALIZACJA", now.strftime("%H:%M"))
         st.markdown("---")
-        if not df_tab.empty: st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
+        if not df_tab.empty: st.data_editor(df_tab.iloc[:, :5], use_container_width=True, hide_index=True, height=700)
