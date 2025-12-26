@@ -47,7 +47,7 @@ st.markdown(f"""
 
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }}
     [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; font-size: 0.9rem !important; }}
-    [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 12px !important; padding: 15px !important; text-align: center !important; }}
+    [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 15px !important; text-align: center !important; }}
 
     button[data-baseweb="tab"] {{ font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 30px !important; border: none !important; }}
     button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }}
@@ -55,8 +55,9 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH I PERSONALIZACJA (NAPRAWA ETYKIETY)
+# 2. LOGIKA DANYCH I DYNAMICZNE NAZWISKO
 # ==========================================================
+# Tutaj wpisz pełne dane pracowników, aby system ich rozpoznawał
 FULL_NAMES = {
     "Andrzej": "ANDRZEJ WALCZAK",
     "Marta": "MARTA KOWALSKA",
@@ -73,8 +74,8 @@ u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
 
 if u_p in USERS and USERS[u_p] == k_p: 
     zalogowany = u_p
-    # Prawidłowe pobranie nazwy do wyświetlenia
-    wyswietlana_nazwa = FULL_NAMES.get(zalogowany, zalogowany.upper())
+    # Dynamiczne przypisanie nazwiska do zmiennej
+    pelna_nazwa_uz_ = FULL_NAMES.get(zalogowany, zalogowany.upper())
 else: 
     st.error("BŁĄD LOGOWANIA"); st.stop()
 
@@ -94,7 +95,7 @@ def pobierz_arkusz(nazwa):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR (NAPRAWA SZTYWNEGO NAZWISKA)
+# 3. SIDEBAR (NAPRAWA ETYKIETY ZALOGOWANEGO)
 # ==========================================================
 df_biez = pobierz_arkusz("Zadania bieżące")
 df_zreal_raw = pobierz_arkusz("Zadania zrealizowane")
@@ -131,8 +132,8 @@ with st.sidebar:
         for _, r in df_side.head(4).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
     
-    # KLUCZOWA POPRAWKA: Używamy zmiennej wyswietlana_nazwa zamiast tekstu
-    st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {wyswietlana_nazwa}</div>', unsafe_allow_html=True)
+    # TUTAJ BYŁ BŁĄD - TERAZ UŻYWAMY ZMIENNEJ DYNAMICZNEJ
+    st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {pelna_nazwa_uz_}</div>', unsafe_allow_html=True)
 
 # ==========================================================
 # 4. WIDOK GŁÓWNY
