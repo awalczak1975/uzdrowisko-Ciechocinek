@@ -30,16 +30,18 @@ st.markdown(f"""
     .term-box {{ background: #334155; padding: 12px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 10px; color: white; font-size: 0.75rem; line-height: 1.4; }}
     .sidebar-header {{ color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; margin-top: 15px; }}
     .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.85rem; text-align: center; margin-top: 10px; margin-bottom: 20px; border: 2px solid white; }}
+    
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }}
     [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; }}
     [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 15px !important; text-align: center !important; }}
+    
     button[data-baseweb="tab"] {{ font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 30px !important; border: none !important; }}
     button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }}
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH (KLUCZOWA POPRAWKA LICZENIA)
+# 2. LOGIKA DANYCH I POPRAWKA MATEMATYKI DNI
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -63,19 +65,23 @@ def pobierz_arkusz(nazwa, filtruj=True):
         df = df.iloc[:, :6].copy()
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
-        def wstaw_emotke(row):
+        # POPRAWIONA LOGIKA: miniony czas to plus, przyszłość to minus
+        def procesuj_wiersz(row):
             try:
-                # Pobranie liczby dni z kolumny 5 (index 4)
-                dni = pd.to_numeric(str(row.iloc[4]).replace(',', '.'), errors='coerce')
+                # Pobieramy wartość DNI (kolumna index 4)
+                dni_raw = str(row.iloc[4]).replace(',', '.')
+                dni = pd.to_numeric(dni_raw, errors='coerce')
                 tresc = str(row.iloc[0])
+                
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
-                # LOGIKA ANDRZEJA: Od -2 w górę (w tym wszystkie dodatnie) to pilne 🔥
+                
+                # ZADANIE PILNE: od -2 w górę (czyli -2, -1, 0, 1, 3, 7...)
                 if not pd.isna(dni) and dni >= -2:
                     return f"🔥 {tresc}"
                 return f"⏳ {tresc}"
             except: return str(row.iloc[0])
 
-        df.iloc[:, 0] = df.apply(wstaw_emotke, axis=1)
+        df.iloc[:, 0] = df.apply(procesuj_wiersz, axis=1)
 
         if filtruj:
             if zalogowany == "Sławek":
@@ -120,7 +126,11 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_sidebar.empty:
-        for _, r in df_sidebar.head(4).iterrows():
+        # Sortujemy spóźnione zadania na górę listy nadchodzących
+        df_side_sorted = df_sidebar.copy()
+        df_side_sorted['DNI_VAL'] = pd.to_numeric(df_side_sorted.iloc[:, 4].astype(str).str.replace(',', '.'), errors='coerce').fillna(-999)
+        df_side_sorted = df_side_sorted.sort_values(by='DNI_VAL', ascending=False)
+        for _, r in df_side_sorted.head(4).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[3]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
@@ -145,9 +155,9 @@ for i, nazwa in enumerate(lista_zakladek):
         count_razem = len(df_tab)
         pilne_count = 0
         if not df_tab.empty:
-            # Ponowne przeliczenie DNI dla licznika PILNE
+            # Licznik pilnych: wszystko od -2 w górę (spóźnienia)
             vals = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.'), errors='coerce').fillna(-999)
-            pilne_count = len(df_tab[vals >= -2]) # Wartości -2, -1, 0, 1, 2... to pilne 🔥
+            pilne_count = len(df_tab[vals >= -2])
         
         m1.metric("📋 Razem", count_razem)
         m2.metric("🔥 Pilne (-2+)", pilne_count)
@@ -156,7 +166,7 @@ for i, nazwa in enumerate(lista_zakladek):
         
         st.markdown("---")
         if not df_tab.empty:
-            st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
+            st.data_editor(df_tab.iloc[:, :6], use_container_width=True, hide_index=True, height=700)
         else:
             st.info("Brak zadań.")
 
