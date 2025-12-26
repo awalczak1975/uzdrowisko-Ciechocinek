@@ -19,7 +19,7 @@ LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocine
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 0.5rem !important; }}
-    [data-testid="stSidebar"] {{ background-color: #1e293b !important; border-right: 5px solid #eab308 !important; min-width: 300px !important; }}
+    [data-testid="stSidebar"] {{ background-color: #1e293b !important; border-right: 5px solid #eab308 !important; min-width: 300px !important; visibility: visible !important; }}
     .logo-link {{ display: block; text-align: center; margin-top: -65px !important; margin-bottom: 15px !important; cursor: pointer; }}
     .logo-link img {{ width: 185px; }}
     .cal-container {{ background: white; padding: 10px; border-radius: 8px; border: 2px solid #eab308; width: 100%; margin-bottom: 15px; }}
@@ -39,7 +39,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH (FOKUS NA KOLUMNĘ A I LICZBY)
+# 2. LOGIKA UWIERZYTELNIANIA
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -54,28 +54,33 @@ def polacz():
     return gspread.authorize(creds)
 
 @st.cache_data(ttl=10)
-def pobierz_arkusz(nazwa, filtruj=True):
+def pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True):
     try:
         sh = polacz().open("Marta-Dział Techniczny")
         ws = sh.worksheet(nazwa)
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
-        df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :6].copy()
+        
+        df = pd.DataFrame(dane[1:], columns=dane[0])
+        df = df.iloc[:, :6].copy()
+        # Filtr na kolumnę A (Treść Zadania)
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
         def wstaw_emotke(row):
             try:
-                raw_dni = str(row.iloc[4]).replace(',', '.').strip()
-                dni = pd.to_numeric(raw_dni, errors='coerce')
-                tresc = str(row.iloc[0])
-                if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
+                # Zamiana DNI na liczbę
+                val = str(row.iloc[4]).replace(',', '.').strip()
+                dni = pd.to_numeric(val, errors='coerce')
+                original_text = str(row.iloc[0])
+                if "zrealizowane" in nazwa.lower(): return f"✅ {original_text}"
                 # LOGIKA: Dni >= -2 to ogień (w tym wszystkie spóźnione na plusie)
-                if not pd.isna(dni) and dni >= -2: return f"🔥 {tresc}"
-                return f"⏳ {tresc}"
+                if not pd.isna(dni) and dni >= -2: return f"🔥 {original_text}"
+                return f"⏳ {original_text}"
             except: return str(row.iloc[0])
 
         df.iloc[:, 0] = df.apply(wstaw_emotke, axis=1)
-        if filtruj:
+
+        if filtruj_dla_uzytkownika:
             col_osoba = df.iloc[:, 5].str.lower()
             if zalogowany == "Sławek": return df[col_osoba.str.contains("sławek", na=False)].copy()
             elif zalogowany in ["Rafał", "Agata"]: return df[~col_osoba.str.contains("sławek", na=False)].copy()
@@ -83,9 +88,9 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR (LOGOTYP, KALENDARZ, NADCHODZĄCE)
+# 3. LEWY PANEL (SIDEBAR) - WYMUSZONE WYŚWIETLANIE
 # ==========================================================
-df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj=True)
+df_biez_side = pobierz_arkusz("Zadania bieżące", filtruj_dla_uzytkownika=True)
 PERSONAL_URL = f"{APP_URL}?u={zalogowany}&k={USERS[zalogowany]}"
 
 with st.sidebar:
@@ -99,8 +104,8 @@ with st.sidebar:
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_zadaniem = set()
-    if not df_sidebar.empty:
-        dt_deadlines = pd.to_datetime(df_sidebar.iloc[:, 3], errors='coerce', dayfirst=True)
+    if not df_biez_side.empty:
+        dt_deadlines = pd.to_datetime(df_biez_side.iloc[:, 3], errors='coerce', dayfirst=True)
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
     html_cal = f'<div class="cal-container"><table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
@@ -116,16 +121,16 @@ with st.sidebar:
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
-    if not df_sidebar.empty:
-        for _, r in df_sidebar.head(4).iterrows():
+    if not df_biez_side.empty:
+        for _, r in df_biez_side.head(4).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[3]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (GLOBALNE LICZNIKI I TABELA)
+# 4. WIDOK GŁÓWNY
 # ==========================================================
-df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj=False)
+df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj_dla_uzytkownika=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
 if zalogowany == "Andrzej": lista_zakladek.append("Terminy Sławka")
 lista_zakladek.append("CZAT 🔴")
@@ -136,26 +141,24 @@ for i, nazwa in enumerate(lista_zakladek):
         with tabs[i]: st.info("Czat aktywny.")
         continue
     with tabs[i]:
-        df_tab = pobierz_arkusz(nazwa, filtruj=True)
+        df_tab = pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True)
         m1, m2, m3, m4 = st.columns(4)
         
-        count_razem = len(df_tab)
+        # LICZENIE PILNYCH NA PODSTAWIE KOLUMNY DNI
         pilne_count = 0
         if not df_tab.empty:
-            # KLUCZOWE PRZELICZENIE DLA LICZNIKA: Wszystko >= -2
             vals_dni = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.'), errors='coerce').fillna(-999)
             pilne_count = len(df_tab[vals_dni >= -2])
         
-        m1.metric("RAZEM", count_razem)
+        m1.metric("RAZEM", len(df_tab))
         m2.metric("PILNE 🔥", pilne_count)
         m3.metric("ZREALIZOWANE", len(df_zreal_full))
         m4.metric("AKTUALIZACJA", now.strftime("%H:%M"))
         
         st.markdown("---")
         if not df_tab.empty:
-            st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
+            st.data_editor(df_tab.iloc[:, :6], use_container_width=True, hide_index=True, height=700)
         else:
             st.info("Brak zadań.")
 
 st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now.strftime("%d.%m.%Y")}</span></div>', unsafe_allow_html=True)
-```Przy okazji, aby uzyskać dostęp do wszystkich funkcji aplikacji, włącz [aktywność w aplikacjach z Gemini](https://myactivity.google.com/product/gemini).
