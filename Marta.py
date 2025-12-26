@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (WYMUSZENIE FINALNE)
+# 1. KONFIGURACJA I STYLIZACJA (TOTALNA KOREKTA)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -29,6 +29,7 @@ st.markdown(f"""
     .day-today {{ background-color: #eab308 !important; }}
     .day-task {{ color: #ef4444 !important; border: 1.5px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
     
+    /* KAFELKI NADCHODZĄCE */
     .term-box {{ background: #334155; padding: 10px 12px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 6px; color: white; font-size: 0.75rem; line-height: 1.3; }}
     .term-box:first-of-type {{ margin-top: 8px !important; }} 
     
@@ -39,16 +40,18 @@ st.markdown(f"""
     button[data-baseweb="tab"] {{ font-size: 1.0rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #cbd5e1 !important; border-radius: 8px 8px 0 0 !important; padding: 8px 25px !important; margin-right: 4px !important; }}
     button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #0f172a !important; border-bottom: 5px solid #ef4444 !important; }}
     
-    /* ABSOLUTNE WYMUSZENIE KOLORÓW NAGŁÓWKA TABELI */
-    div[data-testid="stDataFrame"] thead tr th {{
+    /* EKREMALNE WYMUSZENIE KOLORÓW NAGŁÓWKA TABELI */
+    [data-testid="stDataFrameHeaderCell"] {{
         background-color: #1e293b !important;
-        color: #eab308 !important;
+        border-bottom: 1px solid #eab308 !important;
     }}
-    div[data-testid="stDataFrameHeaderCell"] label p {{
+    [data-testid="stDataFrameHeaderCell"] * {{
         color: #eab308 !important;
         font-weight: 900 !important;
+        background-color: #1e293b !important;
     }}
     
+    /* METRYKI */
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.0rem !important; }}
     [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; font-size: 0.8rem !important; }}
     [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 10px !important; }}
@@ -56,7 +59,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH (ZACHOWANA I SPRAWDZONA)
+# 2. LOGIKA DANYCH (NIENARUSZONA)
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -78,7 +81,7 @@ def pobierz_arkusz(nazwa, filtruj=True):
         df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :5].copy()
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
-        # Sortowanie logiczne: spóźnienia na górę
+        # Sortowanie logiczne: największe spóźnienia na górę
         df['sort_val'] = pd.to_numeric(df.iloc[:, 3].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
         df = df.sort_values(by='sort_val', ascending=False)
 
