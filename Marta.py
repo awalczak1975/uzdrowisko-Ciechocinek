@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. STYLIZACJA I KONFIGURACJA
+# 1. KONFIGURACJA I STYLIZACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -22,11 +22,13 @@ st.markdown(f"""
     [data-testid="stSidebar"] {{ background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }}
     .logo-link {{ display: block; text-align: center; margin-top: -65px !important; margin-bottom: 15px !important; cursor: pointer; }}
     .logo-link img {{ width: 185px; }}
+    
     .cal-container {{ background: white; padding: 10px; border-radius: 8px; border: 2px solid #eab308; width: 100%; margin-bottom: 15px; }}
     .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 11px; color: #1e293b; }}
     .cal-table td {{ text-align: center; padding: 5px 1px; font-weight: 700; border-radius: 3px; }}
     .day-today {{ background-color: #eab308 !important; }}
     .day-task {{ color: #ef4444 !important; border: 1px solid #ef4444 !important; }}
+    
     .term-box {{ background: #334155; padding: 12px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 10px; color: white; font-size: 0.75rem; line-height: 1.4; }}
     .sidebar-header {{ color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; margin-top: 15px; }}
     .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.85rem; text-align: center; margin-top: 10px; margin-bottom: 20px; border: 2px solid white; }}
@@ -41,22 +43,20 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH (5 KOLUMN I FILTROWANIE)
+# 2. LOGIKA DANYCH I FILTROWANIA
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
 
-if u_p in USERS and USERS[u_p] == k_p:
-    zalogowany = u_p
-else:
-    st.error("BŁĄD LOGOWANIA"); st.stop()
+if u_p in USERS and USERS[u_p] == k_p: zalogowany = u_p
+else: st.error("BŁĄD LOGOWANIA"); st.stop()
 
 def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
     return gspread.authorize(creds)
 
 @st.cache_data(ttl=15)
-def pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True):
+def pobierz_arkusz(nazwa, filtruj=True):
     try:
         sh = polacz().open("Marta-Dział Techniczny")
         ws = sh.worksheet(nazwa)
@@ -64,42 +64,36 @@ def pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True):
         if len(dane) < 2: return pd.DataFrame()
         
         df = pd.DataFrame(dane[1:], columns=dane[0])
-        df = df.iloc[:, :5].copy() 
-        df = df[df.iloc[:, 2].str.strip() != ""].copy()
+        # Ograniczamy do 6 kolumn, aby pobrać "OSOBA" do filtrów
+        df = df.iloc[:, :6].copy()
+        df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
-        # LOGIKA EMOTEK NA POCZĄTKU TREŚCI
-        def wstaw_emotke(row):
+        # LOGIKA EMOTEK I PILNOŚCI
+        def procesuj_wiersz(row):
             try:
-                # Kolumna 5 (DNI) - poprawiona konwersja
-                dni_val = str(row.iloc[4]).replace(',', '.')
-                dni = pd.to_numeric(dni_val, errors='coerce')
-                tresc = str(row.iloc[2])
-                
-                if "zrealizowane" in nazwa.lower():
-                    return f"✅ {tresc}"
-                
-                # ZADANIE PILNE: od -2 w górę (w tym 0 i wszystkie po terminie na plusie)
-                if not pd.isna(dni) and dni >= -2:
-                    return f"🔥 {tresc}"
-                return f"⏳ {tresc}"
-            except:
-                return str(row.iloc[2])
+                # Kolumna DNI (index 4)
+                dni = pd.to_numeric(str(row.iloc[4]).replace(',', '.'), errors='coerce')
+                tresc = str(row.iloc[0])
+                if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
+                # Pilne: -2, -1, 0 oraz wszystkie dodatnie (po terminie)
+                return f"🔥 {tresc}" if not pd.isna(dni) and dni >= -2 else f"⏳ {tresc}"
+            except: return str(row.iloc[0])
 
-        # Podmiana treści zadania na wersję z ikoną
-        df.iloc[:, 2] = df.apply(wstaw_emotke, axis=1)
+        df.iloc[:, 0] = df.apply(procesuj_wiersz, axis=1)
 
-        if filtruj_dla_uzytkownika:
+        if filtruj:
+            # Kolumna OSOBA (index 5)
             if zalogowany == "Sławek":
-                return df[df.iloc[:, 1].str.contains("Sławek", case=False, na=False)].copy()
+                return df[df.iloc[:, 5].str.contains("Sławek", case=False, na=False)].copy()
             elif zalogowany in ["Rafał", "Agata"]:
-                return df[~df.iloc[:, 1].str.contains("Sławek", case=False, na=False)].copy()
+                return df[~df.iloc[:, 5].str.contains("Sławek", case=False, na=False)].copy()
         return df 
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR (LOGOTYP, KALENDARZ I ZADANIA)
+# 3. SIDEBAR (LOGO, KALENDARZ, NADCHODZĄCE)
 # ==========================================================
-df_side = pobierz_arkusz("Zadania bieżące", filtruj_dla_uzytkownika=True)
+df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj=True)
 PERSONAL_URL = f"{APP_URL}?u={zalogowany}&k={USERS[zalogowany]}"
 
 with st.sidebar:
@@ -113,8 +107,9 @@ with st.sidebar:
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_zadaniem = set()
-    if not df_side.empty:
-        dt_deadlines = pd.to_datetime(df_side.iloc[:, 3], errors='coerce', dayfirst=True)
+    if not df_sidebar.empty:
+        # Kolumna DEADLINE (index 3)
+        dt_deadlines = pd.to_datetime(df_sidebar.iloc[:, 3], errors='coerce', dayfirst=True)
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
     html_cal = f'<div class="cal-container"><table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
@@ -129,18 +124,18 @@ with st.sidebar:
         html_cal += '</tr>'
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
 
-    # NAPRAWA WYŚWIETLANIA POD KALENDARZEM
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
-    if not df_side.empty:
-        for _, r in df_side.head(4).iterrows():
-            st.markdown(f'<div class="term-box"><b>{r.iloc[3]}</b>: {str(r.iloc[2])}</div>', unsafe_allow_html=True)
+    if not df_sidebar.empty:
+        for _, r in df_sidebar.head(4).iterrows():
+            # index 3 to deadline, index 0 to treść z emotką
+            st.markdown(f'<div class="term-box"><b>{r.iloc[3]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
 # 4. WIDOK GŁÓWNY (GLOBALNE LICZNIKI I TABELA)
 # ==========================================================
-df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj_dla_uzytkownika=False)
+df_zreal_global = pobierz_arkusz("Zadania zrealizowane", filtruj=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
 if zalogowany == "Andrzej": lista_zakladek.append("Terminy Sławka")
 lista_zakladek.append("CZAT 🔴")
@@ -151,24 +146,25 @@ for i, nazwa in enumerate(lista_zakladek):
         with tabs[i]: st.info("Komunikator firmowy aktywny.")
         continue
     with tabs[i]:
-        df_tab = pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True)
+        df_tab = pobierz_arkusz(nazwa, filtruj=True)
         m1, m2, m3, m4 = st.columns(4)
-        count_razem = len(df_tab)
         
-        # NAPRAWA LICZNIKA PILNYCH (>= -2)
+        count_razem = len(df_tab)
+        # Pilne: wartość w kolumnie DNI (index 4) >= -2
         pilne_count = 0
         if not df_tab.empty:
             vals = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.'), errors='coerce').fillna(-999)
             pilne_count = len(df_tab[vals >= -2])
         
         m1.metric("📋 Razem", count_razem)
-        m2.metric("🔥 PILNE (-2+)", pilne_count)
-        m3.metric("✅ Zrealizowane", len(df_zreal_full))
+        m2.metric("🔥 Pilne (-2+)", pilne_count)
+        m3.metric("✅ Zrealizowane", len(df_zreal_global))
         m4.metric("🕒 Aktualizacja", now.strftime("%H:%M"))
         
         st.markdown("---")
         if not df_tab.empty:
-            st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
+            # Wyświetlamy kolumny: Treść, Uwagi, Deadline, Dni, Osoba
+            st.data_editor(df_tab.iloc[:, :6], use_container_width=True, hide_index=True, height=700)
         else:
             st.info("Brak zadań.")
 
