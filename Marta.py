@@ -26,11 +26,24 @@ st.markdown(f"""
     .cal-table td {{ text-align: center; padding: 2px 1px; font-weight: 700; border-radius: 3px; }}
     .day-today {{ background-color: #eab308 !important; }}
     .day-task {{ color: #ef4444 !important; border: 1.5px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
-    .term-box {{ background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.65rem; }}
+    
+    /* ZWIĘKSZONE KAFELKI O 20% I 5 ZADAŃ */
+    .term-box {{ 
+        background: #334155; 
+        padding: 10px 12px; /* Zwiększony padding */
+        border-radius: 6px; 
+        border-left: 4px solid #ef4444; 
+        margin-bottom: 6px; 
+        color: white; 
+        font-size: 0.75rem; /* Delikatnie większa czcionka */
+        line-height: 1.3;
+    }}
     .sidebar-header {{ color: #eab308; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; margin-top: 8px; }}
     .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 6px; border-radius: 8px; font-weight: 900; font-size: 0.75rem; text-align: center; margin-top: 10px; margin-bottom: 5px; border: 2px solid white; }}
+    
     button[data-baseweb="tab"] {{ font-size: 1.0rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #cbd5e1 !important; border-radius: 8px 8px 0 0 !important; padding: 8px 25px !important; margin-right: 4px !important; }}
     button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #0f172a !important; border-bottom: 5px solid #ef4444 !important; }}
+    
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.0rem !important; }}
     [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; font-size: 0.8rem !important; }}
     [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 10px !important; }}
@@ -38,7 +51,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA UWIERZYTELNIANIA
+# 2. LOGIKA DANYCH
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -75,9 +88,6 @@ def pobierz_arkusz(nazwa, filtruj=True):
         return df 
     except: return pd.DataFrame()
 
-# ==========================================================
-# 3. NAPRAWIONY FORMULARZ DODAWANIA
-# ==========================================================
 @st.dialog("➕ DODAJ NOWE ZADANIE")
 def otworz_formularz():
     with st.form("form_global"):
@@ -86,37 +96,30 @@ def otworz_formularz():
         deadline = st.date_input("Termin (Deadline)", datetime.now())
         osoba = st.selectbox("Dla kogo?", list(USERS.keys()), index=list(USERS.keys()).index(zalogowany))
         submit = st.form_submit_button("✅ ZAPISZ W ARKUSZU")
-        
         if submit:
             if tresc:
                 try:
                     sh = polacz().open("Marta-Dział Techniczny")
                     ws = sh.worksheet("Zadania bieżące")
-                    # Tworzymy wiersz (DNI zostawiamy puste, arkusz sam policzy)
                     ws.append_row([tresc, uwagi, deadline.strftime("%Y-%m-%d"), "", osoba])
                     st.success("Zadanie zapisane pomyślnie!")
                     st.cache_data.clear()
                     st.rerun()
                 except Exception as e:
                     st.error(f"Problem z arkuszem: {e}")
-            else:
-                st.warning("Musisz podać treść zadania!")
+            else: st.warning("Musisz podać treść zadania!")
 
 # ==========================================================
-# 4. LEWY PANEL (SIDEBAR)
+# 3. LEWY PANEL (SIDEBAR)
 # ==========================================================
 df_side = pobierz_arkusz("Zadania bieżące", filtruj=True)
 with st.sidebar:
     st.markdown(f'<a href="https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u={zalogowany}&k={USERS[zalogowany]}" target="_self" class="logo-link"><img src="{LOGO_URL}"></a>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1: 
-        # Wywołanie okna dialogowego
-        if st.button("➕ DODAJ", use_container_width=True, key="btn_dodaj"):
-            otworz_formularz()
+        if st.button("➕ DODAJ", use_container_width=True, key="btn_dodaj"): otworz_formularz()
     with c2: 
-        if st.button("🔄 ODSW", use_container_width=True):
-            st.cache_data.clear()
-            st.rerun()
+        if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
     
     st.markdown('<div class="sidebar-header">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
@@ -140,12 +143,14 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_side.empty:
-        for _, r in df_side.head(3).iterrows():
+        # POKAZUJEMY TERAZ 5 ZADAŃ
+        for _, r in df_side.head(5).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[2]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
+    
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 5. WIDOK GŁÓWNY
+# 4. WIDOK GŁÓWNY
 # ==========================================================
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "CZAT 🔴"]
