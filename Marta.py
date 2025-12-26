@@ -8,12 +8,11 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. PEŁNA STYLIZACJA (ETYKIETA I METRYKI)
+# 1. PEŁNA STYLIZACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
 
-APP_URL = "https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u=Andrzej&k=8800"
 LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20%281%29.png"
 
 st.markdown(f"""
@@ -56,8 +55,30 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH (NAPRAWA LICZNIKÓW)
+# 2. LOGIKA DANYCH I PERSONALIZACJA
 # ==========================================================
+# Mapowanie imion na pełne nazwiska dla etykiety
+FULL_NAMES = {
+    "Andrzej": "ANDRZEJ WALCZAK",
+    "Marta": "MARTA KOWALSKA", # Proszę uzupełnić prawdziwe nazwiska pracowników
+    "Sławek": "SŁAWEK NOWAK",
+    "Agata": "AGATA WIŚNIEWSKA",
+    "Rafał": "RAFAŁ WÓJCIK",
+    "Dagmara": "DAGMARA LIS",
+    "Ewelina": "EWELINA MAZUR",
+    "Ireneusz": "IRENEUSZ KRÓL"
+}
+
+USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
+u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
+
+if u_p in USERS and USERS[u_p] == k_p: 
+    zalogowany = u_p
+    # Pobranie pełnego nazwiska z mapy
+    wyswietlana_nazwa = FULL_NAMES.get(zalogowany, zalogowany.upper())
+else: 
+    st.stop()
+
 def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
     return gspread.authorize(creds)
@@ -70,20 +91,17 @@ def pobierz_arkusz(nazwa):
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
         df = pd.DataFrame(dane[1:], columns=dane[0])
-        # Filtrujemy tylko niepuste wiersze w kolumnie z zadaniem
         return df[df['TREŚĆ ZADANIA'].str.strip() != ""].copy()
     except: return pd.DataFrame()
 
-USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
-u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
-if u_p in USERS and USERS[u_p] == k_p: zalogowany = u_p
-else: st.stop()
-
 # ==========================================================
-# 3. SIDEBAR
+# 3. SIDEBAR (DYNAMICZNA ETYKIETA)
 # ==========================================================
 df_biez = pobierz_arkusz("Zadania bieżące")
 df_zreal_raw = pobierz_arkusz("Zadania zrealizowane")
+
+# Dynamiczny link dla loga (zachowuje sesję zalogowanego)
+APP_URL = f"https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u={zalogowany}&k={USERS[zalogowany]}"
 
 with st.sidebar:
     st.markdown(f'<a href="{APP_URL}" target="_self" class="logo-link"><img src="{LOGO_URL}"></a>', unsafe_allow_html=True)
@@ -116,13 +134,13 @@ with st.sidebar:
         for _, r in df_side.head(4).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
     
-    st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: ANDRZEJ WALCZAK</div>', unsafe_allow_html=True)
+    # NAPRAWIONA ETYKIETA: Teraz wyświetla nazwisko osoby z linku
+    st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {wyswietlana_nazwa}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (POPRAWNE ZLICZANIE)
+# 4. WIDOK GŁÓWNY
 # ==========================================================
 tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "CZAT 🔴"])
-# Precyzyjny licznik zrealizowanych
 count_zreal = len(df_zreal_raw) if not df_zreal_raw.empty else 0
 
 for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
@@ -130,14 +148,12 @@ for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy
         df_tab = pobierz_arkusz(nazwa)
         m1, m2, m3, m4 = st.columns(4)
         if not df_tab.empty:
-            count_razem = len(df_tab) # Zliczanie fizycznych rekordów
+            count_razem = len(df_tab)
             df_tab['DNI_N'] = pd.to_numeric(df_tab['DNI'], errors='coerce').fillna(-999)
-            
             m1.metric("📋 Razem", count_razem)
             m2.metric("🔥 Pilne (-2+)", len(df_tab[df_tab['DNI_N'] >= -2]))
             m3.metric("✅ Zrealizowane", count_zreal)
             m4.metric("🕒 Aktualizacja", now.strftime("%H:%M"))
-            
             st.markdown("---")
             st.data_editor(df_tab.drop(columns=['DNI_N']), use_container_width=True, hide_index=True, height=700)
         else:
