@@ -1,4 +1,4 @@
-=import streamlit as st
+import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
@@ -53,28 +53,31 @@ def polacz():
     return gspread.authorize(creds)
 
 @st.cache_data(ttl=10)
-def pobierz_arkusz(nazwa, filtruj=True):
+def pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True):
     try:
         sh = polacz().open("Marta-Dział Techniczny")
         ws = sh.worksheet(nazwa)
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
+        
         df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :6].copy()
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
         def wstaw_emotke(row):
             try:
-                # Konwersja DNI (index 4) na liczbę
-                dni = pd.to_numeric(str(row.iloc[4]).replace(',', '.').strip(), errors='coerce')
+                # Siłowa konwersja na liczbę
+                raw_dni = str(row.iloc[4]).replace(',', '.').strip()
+                dni = pd.to_numeric(raw_dni, errors='coerce')
                 tresc = str(row.iloc[0])
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
-                # PILNE: wszystko od -2 w górę
+                # PILNE: wszystko >= -2
                 if not pd.isna(dni) and dni >= -2: return f"🔥 {tresc}"
                 return f"⏳ {tresc}"
             except: return str(row.iloc[0])
 
         df.iloc[:, 0] = df.apply(wstaw_emotke, axis=1)
-        if filtruj:
+
+        if filtruj_dla_uzytkownika:
             col_osoba = df.iloc[:, 5].str.lower()
             if zalogowany == "Sławek": return df[col_osoba.str.contains("sławek", na=False)].copy()
             elif zalogowany in ["Rafał", "Agata"]: return df[~col_osoba.str.contains("sławek", na=False)].copy()
@@ -82,9 +85,9 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. WYMUSZONE WYŚWIETLANIE SIDEBARA
+# 3. LEWY PANEL (SIDEBAR) - WYMUSZONE WYŚWIETLANIE
 # ==========================================================
-df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj=True)
+df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj_dla_uzytkownika=True)
 PERSONAL_URL = f"https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u={zalogowany}&k={USERS[zalogowany]}"
 
 with st.sidebar:
@@ -122,9 +125,9 @@ with st.sidebar:
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (NAUKA LICZENIA PILNYCH)
+# 4. WIDOK GŁÓWNY (POPRAWIONE LICZNIKI)
 # ==========================================================
-df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj=False)
+df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj_dla_uzytkownika=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
 if zalogowany == "Andrzej": lista_zakladek.append("Terminy Sławka")
 lista_zakladek.append("CZAT 🔴")
@@ -135,21 +138,24 @@ for i, nazwa in enumerate(lista_zakladek):
         with tabs[i]: st.info("Czat aktywny.")
         continue
     with tabs[i]:
-        df_tab = pobierz_arkusz(nazwa, filtruj=True)
+        df_tab = pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True)
         m1, m2, m3, m4 = st.columns(4)
         
         # LICZNIK PILNYCH: DNI >= -2 (W tym 3, 5, 7...)
         pilne_count = 0
         if not df_tab.empty:
-            dni_numbers = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
-            pilne_count = len(df_tab[dni_numbers >= -2])
+            dni_raw_values = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
+            pilne_count = len(df_tab[dni_raw_values >= -2])
         
         m1.metric("RAZEM", len(df_tab))
         m2.metric("PILNE 🔥", pilne_count)
         m3.metric("ZREALIZOWANE", len(df_zreal_full))
         m4.metric("AKTUALIZACJA", now.strftime("%H:%M"))
+        
         st.markdown("---")
-        if not df_tab.empty: st.data_editor(df_tab.iloc[:, :6], use_container_width=True, hide_index=True, height=700)
-        else: st.info("Brak zadań.")
+        if not df_tab.empty:
+            st.data_editor(df_tab.iloc[:, :6], use_container_width=True, hide_index=True, height=700)
+        else:
+            st.info("Brak zadań.")
 
 st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now.strftime("%d.%m.%Y")}</span></div>', unsafe_allow_html=True)
