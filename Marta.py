@@ -21,48 +21,16 @@ st.markdown(f"""
     [data-testid="stSidebar"] {{ background-color: #1e293b !important; border-right: 5px solid #eab308 !important; min-width: 310px !important; }}
     .logo-link {{ display: block; text-align: center; margin-top: -65px !important; margin-bottom: 5px !important; }}
     .logo-link img {{ width: 160px; }}
-    
-    /* ULTRA KOMPAKTOWY KALENDARZ */
     .cal-container {{ background: white; padding: 4px; border-radius: 8px; border: 2px solid #eab308; margin-bottom: 8px; }}
     .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 9px; color: #1e293b; }}
     .cal-table td {{ text-align: center; padding: 2px 1px; font-weight: 700; border-radius: 3px; }}
     .day-today {{ background-color: #eab308 !important; }}
     .day-task {{ color: #ef4444 !important; border: 1.5px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
-    
-    /* MAŁE KAFELKI NADCHODZĄCYCH */
     .term-box {{ background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.65rem; }}
     .sidebar-header {{ color: #eab308; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; margin-top: 8px; }}
-    
-    /* STOPKA BEZ KONIECZNOŚCI PRZEWIJANIA */
-    .user-info-footer {{ 
-        background-color: #eab308 !important; 
-        color: #1e293b !important; 
-        padding: 6px; 
-        border-radius: 8px; 
-        font-weight: 900; 
-        font-size: 0.75rem; 
-        text-align: center; 
-        margin-top: 10px; 
-        margin-bottom: 5px; 
-        border: 2px solid white; 
-    }}
-
-    /* STYLIZACJA ZAKŁADEK - CIEMNIEJSZY KAFELEK DLA AKTYWNEJ */
-    button[data-baseweb="tab"] {{ 
-        font-size: 1.0rem !important; 
-        font-weight: 700 !important; 
-        color: #1e293b !important; 
-        background-color: #cbd5e1 !important; /* Jaśniejszy dla nieaktywnych */
-        border-radius: 8px 8px 0 0 !important; 
-        padding: 8px 25px !important;
-        margin-right: 4px !important;
-    }}
-    button[data-baseweb="tab"][aria-selected="true"] {{ 
-        color: white !important; 
-        background-color: #0f172a !important; /* BARDZO CIEMNY GRANAT DLA AKTYWNEJ */
-        border-bottom: 5px solid #ef4444 !important; /* CZERWONA LINIA POD SPODEM */
-    }}
-    
+    .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 6px; border-radius: 8px; font-weight: 900; font-size: 0.75rem; text-align: center; margin-top: 10px; margin-bottom: 5px; border: 2px solid white; }}
+    button[data-baseweb="tab"] {{ font-size: 1.0rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #cbd5e1 !important; border-radius: 8px 8px 0 0 !important; padding: 8px 25px !important; margin-right: 4px !important; }}
+    button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #0f172a !important; border-bottom: 5px solid #ef4444 !important; }}
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.0rem !important; }}
     [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; font-size: 0.8rem !important; }}
     [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 10px !important; }}
@@ -70,7 +38,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH
+# 2. POŁĄCZENIE Z ARKUSZEM
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -91,17 +59,14 @@ def pobierz_arkusz(nazwa, filtruj=True):
         if len(dane) < 2: return pd.DataFrame()
         df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :5].copy()
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
-        
         def wstaw_emotke(row):
             try:
                 dni = pd.to_numeric(str(row.iloc[3]).replace(',', '.').strip(), errors='coerce')
                 tresc = str(row.iloc[0])
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
-                # Zasada: -2 i więcej (spóźnienia są na plusie) [cite: 2025-12-22]
                 if not pd.isna(dni) and dni >= -2: return f"🔥 {tresc}"
                 return f"⏳ {tresc}"
             except: return str(row.iloc[0])
-
         df.iloc[:, 0] = df.apply(wstaw_emotke, axis=1)
         if filtruj:
             col_osoba = df.iloc[:, 4].str.lower()
@@ -111,13 +76,41 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. LEWY PANEL (SIDEBAR) - KOMPAKTOWY
+# 3. FUNKCJA DODAWANIA ZADANIA
+# ==========================================================
+@st.dialog("➕ DODAJ NOWE ZADANIE")
+def dodaj_zadanie():
+    with st.form("form_dodaj"):
+        tresc = st.text_input("Treść zadania")
+        uwagi = st.text_area("Uwagi")
+        deadline = st.date_input("Deadline", datetime.now())
+        osoba = st.selectbox("Osoba", list(USERS.keys()))
+        submit = st.form_submit_button("ZAPISZ W ARKUSZU")
+        
+        if submit:
+            if tresc:
+                try:
+                    sh = polacz().open("Marta-Dział Techniczny")
+                    ws = sh.worksheet("Zadania bieżące")
+                    nowy_wiersz = [tresc, uwagi, deadline.strftime("%Y-%m-%d"), "", osoba]
+                    ws.append_row(nowy_wiersz)
+                    st.success("Zadanie dodane!")
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Błąd zapisu: {e}")
+            else:
+                st.warning("Wpisz treść zadania!")
+
+# ==========================================================
+# 4. LEWY PANEL (SIDEBAR)
 # ==========================================================
 df_side = pobierz_arkusz("Zadania bieżące", filtruj=True)
 with st.sidebar:
     st.markdown(f'<a href="https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u={zalogowany}&k={USERS[zalogowany]}" target="_self" class="logo-link"><img src="{LOGO_URL}"></a>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
-    with c1: st.button("➕ DODAJ", use_container_width=True)
+    with c1: 
+        if st.button("➕ DODAJ", use_container_width=True): dodaj_zadanie()
     with c2: 
         if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
     
@@ -145,11 +138,10 @@ with st.sidebar:
     if not df_side.empty:
         for _, r in df_side.head(3).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[2]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
-    
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY
+# 5. WIDOK GŁÓWNY
 # ==========================================================
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "CZAT 🔴"]
@@ -162,12 +154,10 @@ for i, nazwa in enumerate(lista_zakladek):
     with tabs[i]:
         df_tab = pobierz_arkusz(nazwa, filtruj=(nazwa != "Zadania zrealizowane"))
         m1, m2, m3, m4 = st.columns(4)
-        
         pilne_count = 0
         if not df_tab.empty:
             num_dni = pd.to_numeric(df_tab.iloc[:, 3].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
             pilne_count = len(df_tab[num_dni >= -2])
-        
         m1.metric("RAZEM", len(df_tab))
         m2.metric("PILNE 🔥", pilne_count)
         m3.metric("ZREALIZOWANE", len(df_zreal_full))
