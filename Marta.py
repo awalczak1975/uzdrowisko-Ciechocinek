@@ -38,7 +38,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH (NAPRAWA INDEKSÓW KOLUMN)
+# 2. LOGIKA DANYCH (KLUCZOWE POPRAWKI)
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -57,24 +57,24 @@ def pobierz_arkusz(nazwa, filtruj=True):
         ws = sh.worksheet(nazwa)
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
-        # Pobieramy tylko 5 kolumn (A-E)
+        # Pobieramy kolumny A-E (0-4)
         df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :5].copy()
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
         def wstaw_emotke(row):
             try:
-                # Kolumna DNI to teraz Indeks 3 (Kolumna D)
+                # Kolumna DNI (index 3) na liczbę
                 dni = pd.to_numeric(str(row.iloc[3]).replace(',', '.').strip(), errors='coerce')
                 tresc = str(row.iloc[0])
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
-                # Zasada: -2 i wszystko na plusie to ogień 🔥 [cite: 2025-12-22]
+                # Logika pilności: >= -2
                 if not pd.isna(dni) and dni >= -2: return f"🔥 {tresc}"
                 return f"⏳ {tresc}"
             except: return str(row.iloc[0])
 
         df.iloc[:, 0] = df.apply(wstaw_emotke, axis=1)
         if filtruj:
-            # Kolumna OSOBA to teraz Indeks 4 (Kolumna E)
+            # Kolumna OSOBA (index 4)
             col_osoba = df.iloc[:, 4].str.lower()
             if zalogowany == "Sławek": return df[col_osoba.str.contains("sławek", na=False)].copy()
             elif zalogowany in ["Rafał", "Agata"]: return df[~col_osoba.str.contains("sławek", na=False)].copy()
@@ -82,13 +82,11 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. LEWY PANEL (SIDEBAR)
+# 3. LEWY PANEL (SIDEBAR) - GWARANTOWANY
 # ==========================================================
-df_biez_side = pobierz_arkusz("Zadania bieżące", filtruj=True)
-PERSONAL_URL = f"https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u={zalogowany}&k={USERS[zalogowany]}"
-
+df_side = pobierz_arkusz("Zadania bieżące", filtruj=True)
 with st.sidebar:
-    st.markdown(f'<a href="{PERSONAL_URL}" target="_self" class="logo-link"><img src="{LOGO_URL}"></a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u={zalogowany}&k={USERS[zalogowany]}" target="_self" class="logo-link"><img src="{LOGO_URL}"></a>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1: st.button("➕ DODAJ", use_container_width=True)
     with c2: 
@@ -99,9 +97,9 @@ with st.sidebar:
     cal = calendar.monthcalendar(now.year, now.month)
     
     dni_z_zadaniem = set()
-    if not df_biez_side.empty:
-        # DEADLINE to Indeks 2 (Kolumna C)
-        dt_deadlines = pd.to_datetime(df_biez_side.iloc[:, 2], errors='coerce', dayfirst=True)
+    if not df_side.empty:
+        # Skonwertuj kolumnę DEADLINE (index 2) na daty
+        dt_deadlines = pd.to_datetime(df_side.iloc[:, 2], errors='coerce', dayfirst=True)
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
     html_cal = f'<div class="cal-container"><table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
@@ -117,10 +115,9 @@ with st.sidebar:
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
-    if not df_biez_side.empty:
-        for _, r in df_biez_side.head(4).iterrows():
+    if not df_side.empty:
+        for _, r in df_side.head(4).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[2]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
-
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
@@ -134,27 +131,21 @@ lista_zakladek.append("CZAT 🔴")
 tabs = st.tabs(lista_zakladek)
 for i, nazwa in enumerate(lista_zakladek):
     if nazwa == "CZAT 🔴":
-        with tabs[i]: st.info("Czat firmowy aktywny.")
+        with tabs[i]: st.info("Czat aktywny.")
         continue
     with tabs[i]:
         df_tab = pobierz_arkusz(nazwa, filtruj=True)
         m1, m2, m3, m4 = st.columns(4)
         
-        # LICZENIE PILNYCH Z POPRAWIONEGO INDEKSU 3
+        # LICZNIK PILNYCH: DNI (index 3) >= -2
         pilne_count = 0
         if not df_tab.empty:
-            dni_vals = pd.to_numeric(df_tab.iloc[:, 3].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
-            pilne_count = len(df_tab[dni_vals >= -2])
+            num_dni = pd.to_numeric(df_tab.iloc[:, 3].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
+            pilne_count = len(df_tab[num_dni >= -2])
         
         m1.metric("RAZEM", len(df_tab))
         m2.metric("PILNE 🔥", pilne_count)
         m3.metric("ZREALIZOWANE", len(df_zreal_full))
         m4.metric("AKTUALIZACJA", now.strftime("%H:%M"))
-        
         st.markdown("---")
-        if not df_tab.empty:
-            st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
-        else:
-            st.info("Brak zadań.")
-
-st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now.strftime("%d.%m.%Y")}</span></div>', unsafe_allow_html=True)
+        if not df_tab.empty: st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
