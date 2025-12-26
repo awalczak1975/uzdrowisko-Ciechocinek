@@ -38,7 +38,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA UWIERZYTELNIANIA
+# 2. LOGIKA DANYCH (NAPRAWA INDEKSÓW KOLUMN)
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -57,31 +57,32 @@ def pobierz_arkusz(nazwa, filtruj=True):
         ws = sh.worksheet(nazwa)
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
-        df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :6].copy()
+        # Pobieramy tylko 5 kolumn (A-E)
+        df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :5].copy()
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
         def wstaw_emotke(row):
             try:
-                # Bezwzględna konwersja DNI na liczbę
-                raw_dni = str(row.iloc[4]).replace(',', '.').strip()
-                dni = pd.to_numeric(raw_dni, errors='coerce')
-                original_text = str(row.iloc[0])
-                if "zrealizowane" in nazwa.lower(): return f"✅ {original_text}"
-                # Zasada: od -2 w górę (czyli Twoje spóźnione zadania na plusie) to ogień 🔥
-                if not pd.isna(dni) and dni >= -2: return f"🔥 {original_text}"
-                return f"⏳ {original_text}"
+                # Kolumna DNI to teraz Indeks 3 (Kolumna D)
+                dni = pd.to_numeric(str(row.iloc[3]).replace(',', '.').strip(), errors='coerce')
+                tresc = str(row.iloc[0])
+                if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
+                # Zasada: -2 i wszystko na plusie to ogień 🔥 [cite: 2025-12-22]
+                if not pd.isna(dni) and dni >= -2: return f"🔥 {tresc}"
+                return f"⏳ {tresc}"
             except: return str(row.iloc[0])
 
         df.iloc[:, 0] = df.apply(wstaw_emotke, axis=1)
         if filtruj:
-            col_osoba = df.iloc[:, 5].str.lower()
+            # Kolumna OSOBA to teraz Indeks 4 (Kolumna E)
+            col_osoba = df.iloc[:, 4].str.lower()
             if zalogowany == "Sławek": return df[col_osoba.str.contains("sławek", na=False)].copy()
             elif zalogowany in ["Rafał", "Agata"]: return df[~col_osoba.str.contains("sławek", na=False)].copy()
         return df 
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. LEWY PANEL (SIDEBAR) - WYMUSZONE ŁADOWANIE NA START
+# 3. LEWY PANEL (SIDEBAR)
 # ==========================================================
 df_biez_side = pobierz_arkusz("Zadania bieżące", filtruj=True)
 PERSONAL_URL = f"https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u={zalogowany}&k={USERS[zalogowany]}"
@@ -99,8 +100,8 @@ with st.sidebar:
     
     dni_z_zadaniem = set()
     if not df_biez_side.empty:
-        # Zaznaczanie czerwonych dni w kalendarzu
-        dt_deadlines = pd.to_datetime(df_biez_side.iloc[:, 3], errors='coerce', dayfirst=True)
+        # DEADLINE to Indeks 2 (Kolumna C)
+        dt_deadlines = pd.to_datetime(df_biez_side.iloc[:, 2], errors='coerce', dayfirst=True)
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
     html_cal = f'<div class="cal-container"><table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
@@ -118,12 +119,12 @@ with st.sidebar:
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_biez_side.empty:
         for _, r in df_biez_side.head(4).iterrows():
-            st.markdown(f'<div class="term-box"><b>{r.iloc[3]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="term-box"><b>{r.iloc[2]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY - LICZNIKI I TABELA
+# 4. WIDOK GŁÓWNY
 # ==========================================================
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
@@ -139,10 +140,10 @@ for i, nazwa in enumerate(lista_zakladek):
         df_tab = pobierz_arkusz(nazwa, filtruj=True)
         m1, m2, m3, m4 = st.columns(4)
         
-        # LICZENIE PILNYCH: DNI >= -2 (W tym spóźnienia 3, 5, 7...)
+        # LICZENIE PILNYCH Z POPRAWIONEGO INDEKSU 3
         pilne_count = 0
         if not df_tab.empty:
-            dni_vals = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
+            dni_vals = pd.to_numeric(df_tab.iloc[:, 3].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
             pilne_count = len(df_tab[dni_vals >= -2])
         
         m1.metric("RAZEM", len(df_tab))
@@ -152,7 +153,7 @@ for i, nazwa in enumerate(lista_zakladek):
         
         st.markdown("---")
         if not df_tab.empty:
-            st.data_editor(df_tab.iloc[:, :6], use_container_width=True, hide_index=True, height=700)
+            st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
         else:
             st.info("Brak zadań.")
 
