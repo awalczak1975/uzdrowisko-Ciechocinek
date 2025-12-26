@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. PEŁNA STYLIZACJA (NAPRAWA SIDEBARU I TABELI)
+# 1. PEŁNA STYLIZACJA (PANCERNY SIDEBAR I TABELA)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -39,7 +39,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH I FILTROWANIA (RYGORYSTYCZNA)
+# 2. LOGIKA DANYCH (5 KOLUMN I FILTROWANIE)
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -54,28 +54,35 @@ def polacz():
     return gspread.authorize(creds)
 
 @st.cache_data(ttl=15)
-def pobierz_arkusz(nazwa, filtruj_dla_slawka=True):
+def pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True):
     try:
         sh = polacz().open("Marta-Dział Techniczny")
         ws = sh.worksheet(nazwa)
         dane = ws.get_all_values()
         if len(dane) < 2: return pd.DataFrame()
-        df = pd.DataFrame(dane[1:], columns=dane[0])
-        df = df[df['TREŚĆ ZADANIA'].str.strip() != ""].copy()
         
-        # FILTROWANIE ARKUSZA
-        if filtruj_dla_slawka:
+        # Pobieramy nagłówki i dane, ograniczając się do pierwszych 5 kolumn
+        df = pd.DataFrame(dane[1:], columns=dane[0])
+        df = df.iloc[:, :5].copy() # Pobieramy kolumny 1-5
+        
+        # Usuwamy puste wiersze (kluczowa jest treść zadania w 3 kolumnie)
+        col_tresc = df.columns[2]
+        df = df[df[col_tresc].str.strip() != ""].copy()
+        
+        # Filtrowanie uprawnień
+        if filtruj_dla_uzytkownika:
+            col_osoba = df.columns[1]
             if zalogowany == "Sławek":
-                return df[df['OSOBA'].str.contains("Sławek", case=False, na=False)].copy()
+                return df[df[col_osoba].str.contains("Sławek", case=False, na=False)].copy()
             elif zalogowany in ["Rafał", "Agata"]:
-                return df[~df['OSOBA'].str.contains("Sławek", case=False, na=False)].copy()
+                return df[~df[col_osoba].str.contains("Sławek", case=False, na=False)].copy()
         return df 
     except: return pd.DataFrame()
 
 # ==========================================================
 # 3. SIDEBAR (LOGO, KALENDARZ, ZADANIA)
 # ==========================================================
-df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj_dla_slawka=True)
+df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj_dla_uzytkownika=True)
 PERSONAL_URL = f"{APP_URL}?u={zalogowany}&k={USERS[zalogowany]}"
 
 with st.sidebar:
@@ -90,7 +97,8 @@ with st.sidebar:
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_zadaniem = set()
     if not df_sidebar.empty:
-        dt_deadlines = pd.to_datetime(df_sidebar['DEADLINE'], errors='coerce', dayfirst=True)
+        col_deadline = df_sidebar.columns[3]
+        dt_deadlines = pd.to_datetime(df_sidebar[col_deadline], errors='coerce', dayfirst=True)
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
     html_cal = f'<div class="cal-container"><table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
@@ -107,19 +115,19 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_sidebar.empty:
+        col_deadline = df_sidebar.columns[3]
+        col_tresc = df_sidebar.columns[2]
         for _, r in df_sidebar.head(4).iterrows():
-            st.markdown(f'<div class="term-box"><b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="term-box"><b>{r[col_deadline]}</b>: {str(r[col_tresc])[:25]}...</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (GLOBALNE LICZNIKI I FILTROWANE TABELE)
+# 4. WIDOK GŁÓWNY (GLOBALNE LICZNIKI I TABELA 5 KOLUMN)
 # ==========================================================
-# Globalny licznik zrealizowanych
-df_zreal_global = pobierz_arkusz("Zadania zrealizowane", filtruj_dla_slawka=False)
+df_zreal_global = pobierz_arkusz("Zadania zrealizowane", filtruj_dla_uzytkownika=False)
 count_zreal_total = len(df_zreal_global)
 
-# Dynamiczne zakładki
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
 if zalogowany == "Andrzej": lista_zakladek.append("Terminy Sławka")
 lista_zakladek.append("CZAT 🔴")
@@ -131,12 +139,14 @@ for i, nazwa in enumerate(lista_zakladek):
         continue
         
     with tabs[i]:
-        df_tab = pobierz_arkusz(nazwa, filtruj_dla_slawka=True)
+        df_tab = pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True)
         m1, m2, m3, m4 = st.columns(4)
+        
         count_razem = len(df_tab)
         pilne = 0
-        if not df_tab.empty and 'DNI' in df_tab.columns:
-            df_tab['DNI_N'] = pd.to_numeric(df_tab['DNI'], errors='coerce').fillna(-999)
+        if not df_tab.empty:
+            col_dni = df_tab.columns[4]
+            df_tab['DNI_N'] = pd.to_numeric(df_tab[col_dni], errors='coerce').fillna(-999)
             pilne = len(df_tab[df_tab['DNI_N'] >= -2])
         
         m1.metric("📋 Razem", count_razem)
@@ -146,9 +156,9 @@ for i, nazwa in enumerate(lista_zakladek):
         
         st.markdown("---")
         if not df_tab.empty:
-            cols = [c for c in df_tab.columns if c != 'DNI_N']
-            st.data_editor(df_tab[cols], use_container_width=True, hide_index=True, height=700)
+            # Wyświetlamy tylko 5 kolumn z arkusza
+            st.data_editor(df_tab.iloc[:, :5], use_container_width=True, hide_index=True, height=700)
         else:
-            st.info("Brak zadań do wyświetlenia dla Twojego konta.")
+            st.info("Brak zadań do wyświetlenia.")
 
 st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now.strftime("%d.%m.%Y")}</span></div>', unsafe_allow_html=True)
