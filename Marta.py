@@ -19,7 +19,7 @@ LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocine
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 0.5rem !important; }}
-    [data-testid="stSidebar"] {{ background-color: #1e293b !important; border-right: 5px solid #eab308 !important; min-width: 300px !important; visibility: visible !important; }}
+    [data-testid="stSidebar"] {{ background-color: #1e293b !important; border-right: 5px solid #eab308 !important; min-width: 300px !important; }}
     .logo-link {{ display: block; text-align: center; margin-top: -65px !important; margin-bottom: 15px !important; cursor: pointer; }}
     .logo-link img {{ width: 185px; }}
     .cal-container {{ background: white; padding: 10px; border-radius: 8px; border: 2px solid #eab308; width: 100%; margin-bottom: 15px; }}
@@ -63,19 +63,19 @@ def pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True):
         
         df = pd.DataFrame(dane[1:], columns=dane[0])
         df = df.iloc[:, :6].copy()
-        # Filtr na kolumnę A (Treść Zadania)
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
+        # LOGIKA EMOTEK I LICZENIA DNI
         def wstaw_emotke(row):
             try:
-                # Zamiana DNI na liczbę
-                val = str(row.iloc[4]).replace(',', '.').strip()
-                dni = pd.to_numeric(val, errors='coerce')
-                original_text = str(row.iloc[0])
-                if "zrealizowane" in nazwa.lower(): return f"✅ {original_text}"
-                # LOGIKA: Dni >= -2 to ogień (w tym wszystkie spóźnione na plusie)
-                if not pd.isna(dni) and dni >= -2: return f"🔥 {original_text}"
-                return f"⏳ {original_text}"
+                # Zamiana DNI na prawdziwą liczbę
+                raw_dni = str(row.iloc[4]).replace(',', '.').strip()
+                dni_val = pd.to_numeric(raw_dni, errors='coerce')
+                tresc = str(row.iloc[0])
+                if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
+                # Pilne: od -2 w górę (w tym 0, 3, 7...)
+                if not pd.isna(dni_val) and dni_val >= -2: return f"🔥 {tresc}"
+                return f"⏳ {tresc}"
             except: return str(row.iloc[0])
 
         df.iloc[:, 0] = df.apply(wstaw_emotke, axis=1)
@@ -88,9 +88,9 @@ def pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. LEWY PANEL (SIDEBAR) - WYMUSZONE WYŚWIETLANIE
+# 3. LEWY PANEL (SIDEBAR)
 # ==========================================================
-df_biez_side = pobierz_arkusz("Zadania bieżące", filtruj_dla_uzytkownika=True)
+df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj_dla_uzytkownika=True)
 PERSONAL_URL = f"{APP_URL}?u={zalogowany}&k={USERS[zalogowany]}"
 
 with st.sidebar:
@@ -104,8 +104,8 @@ with st.sidebar:
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_zadaniem = set()
-    if not df_biez_side.empty:
-        dt_deadlines = pd.to_datetime(df_biez_side.iloc[:, 3], errors='coerce', dayfirst=True)
+    if not df_sidebar.empty:
+        dt_deadlines = pd.to_datetime(df_sidebar.iloc[:, 3], errors='coerce', dayfirst=True)
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
     html_cal = f'<div class="cal-container"><table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
@@ -121,14 +121,14 @@ with st.sidebar:
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
-    if not df_biez_side.empty:
-        for _, r in df_biez_side.head(4).iterrows():
+    if not df_sidebar.empty:
+        for _, r in df_sidebar.head(4).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[3]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY
+# 4. WIDOK GŁÓWNY (POPRAWIONE LICZNIKI)
 # ==========================================================
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj_dla_uzytkownika=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
@@ -144,11 +144,13 @@ for i, nazwa in enumerate(lista_zakladek):
         df_tab = pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True)
         m1, m2, m3, m4 = st.columns(4)
         
-        # LICZENIE PILNYCH NA PODSTAWIE KOLUMNY DNI
+        # SIŁOWE LICZENIE DNI DLA METRYKI
         pilne_count = 0
         if not df_tab.empty:
-            vals_dni = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.'), errors='coerce').fillna(-999)
-            pilne_count = len(df_tab[vals_dni >= -2])
+            df_numeric_check = df_tab.copy()
+            # Konwersja na liczby przed zliczeniem
+            df_numeric_check['DNI_N'] = pd.to_numeric(df_numeric_check.iloc[:, 4].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
+            pilne_count = len(df_numeric_check[df_numeric_check['DNI_N'] >= -2])
         
         m1.metric("RAZEM", len(df_tab))
         m2.metric("PILNE 🔥", pilne_count)
