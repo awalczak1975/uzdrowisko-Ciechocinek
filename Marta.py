@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA
+# 1. KONFIGURACJA I PRECYZYJNA STYLIZACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -21,16 +21,41 @@ st.markdown(f"""
     [data-testid="stSidebar"] {{ background-color: #1e293b !important; border-right: 5px solid #eab308 !important; min-width: 310px !important; }}
     .logo-link {{ display: block; text-align: center; margin-top: -65px !important; margin-bottom: 5px !important; }}
     .logo-link img {{ width: 160px; }}
-    .cal-container {{ background: white; padding: 4px; border-radius: 8px; border: 2px solid #eab308; margin-bottom: 8px; }}
+    
+    /* MODUŁ KALENDARZA Z DODATKOWĄ PRZERWĄ */
+    .cal-container {{ 
+        background: white; 
+        padding: 4px; 
+        border-radius: 8px; 
+        border: 2px solid #eab308; 
+        margin-top: 8px !important; /* Przerwa 2mm nad kalendarzem */
+        margin-bottom: 8px; 
+    }}
     .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 9px; color: #1e293b; }}
     .cal-table td {{ text-align: center; padding: 2px 1px; font-weight: 700; border-radius: 3px; }}
     .day-today {{ background-color: #eab308 !important; }}
     .day-task {{ color: #ef4444 !important; border: 1.5px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
-    .term-box {{ background: #334155; padding: 10px 12px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 6px; color: white; font-size: 0.75rem; line-height: 1.3; }}
+    
+    /* KAFELKI Z DODATKOWĄ PRZERWĄ */
+    .term-box {{ 
+        background: #334155; 
+        padding: 10px 12px; 
+        border-radius: 6px; 
+        border-left: 4px solid #ef4444; 
+        margin-bottom: 6px; 
+        color: white; 
+        font-size: 0.75rem; 
+        line-height: 1.3;
+    }}
+    /* Odstęp 2mm pod nagłówkiem "Nadchodzące Twoje" */
+    .term-box:first-of-type {{ margin-top: 8px !important; }} 
+    
     .sidebar-header {{ color: #eab308; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; margin-top: 8px; }}
     .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 6px; border-radius: 8px; font-weight: 900; font-size: 0.75rem; text-align: center; margin-top: 10px; margin-bottom: 5px; border: 2px solid white; }}
+    
     button[data-baseweb="tab"] {{ font-size: 1.0rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #cbd5e1 !important; border-radius: 8px 8px 0 0 !important; padding: 8px 25px !important; margin-right: 4px !important; }}
     button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #0f172a !important; border-bottom: 5px solid #ef4444 !important; }}
+    
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.0rem !important; }}
     [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; font-size: 0.8rem !important; }}
     [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 10px !important; }}
@@ -38,7 +63,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH
+# 2. LOGIKA DANYCH I POBIERANIA
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -60,10 +85,8 @@ def pobierz_arkusz(nazwa, filtruj=True):
         df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :5].copy()
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
-        # Pomocnicza kolumna do sortowania
+        # Sortowanie logiczne: spóźnienia na górę
         df['sort_val'] = pd.to_numeric(df.iloc[:, 3].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
-        
-        # Sortowanie: największe wartości (spóźnienia) na górę
         df = df.sort_values(by='sort_val', ascending=False)
 
         def wstaw_emotke(row):
@@ -89,22 +112,16 @@ def pobierz_arkusz(nazwa, filtruj=True):
 @st.dialog("➕ DODAJ NOWE ZADANIE")
 def otworz_formularz():
     with st.form("form_global"):
-        tresc = st.text_input("Co jest do zrobienia?")
-        uwagi = st.text_area("Szczegóły / Uwagi")
-        deadline = st.date_input("Termin (Deadline)", datetime.now())
+        tresc = st.text_input("Treść zadania")
+        uwagi = st.text_area("Uwagi")
+        deadline = st.date_input("Deadline", datetime.now())
         osoba = st.selectbox("Dla kogo?", list(USERS.keys()), index=list(USERS.keys()).index(zalogowany))
-        submit = st.form_submit_button("✅ ZAPISZ W ARKUSZU")
-        if submit:
+        if st.form_submit_button("✅ ZAPISZ"):
             if tresc:
-                try:
-                    sh = polacz().open("Marta-Dział Techniczny")
-                    ws = sh.worksheet("Zadania bieżące")
-                    ws.append_row([tresc, uwagi, deadline.strftime("%Y-%m-%d"), "", osoba])
-                    st.success("Zadanie zapisane!")
-                    st.cache_data.clear()
-                    st.rerun()
-                except Exception as e: st.error(f"Błąd: {e}")
-            else: st.warning("Wpisz treść!")
+                sh = polacz().open("Marta-Dział Techniczny")
+                sh.worksheet("Zadania bieżące").append_row([tresc, uwagi, deadline.strftime("%Y-%m-%d"), "", osoba])
+                st.cache_data.clear()
+                st.rerun()
 
 # ==========================================================
 # 3. SIDEBAR I WIDOK GŁÓWNY
@@ -140,8 +157,10 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_side.empty:
+        # POKAZUJEMY 5 ZADAŃ Z POWIĘKSZONYM ODSTĘPEM
         for _, r in df_side.head(5).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[2]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
+    
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj=False)
