@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (Z NOWYM NAGŁÓWKIEM)
+# 1. KONFIGURACJA I STYLIZACJA (WYMUSZONY NAGŁÓWEK)
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -23,29 +23,13 @@ st.markdown(f"""
     .logo-link img {{ width: 160px; }}
     
     /* ODSTĘPY 2MM */
-    .cal-container {{ 
-        background: white; 
-        padding: 4px; 
-        border-radius: 8px; 
-        border: 2px solid #eab308; 
-        margin-top: 8px !important; 
-        margin-bottom: 8px; 
-    }}
+    .cal-container {{ background: white; padding: 4px; border-radius: 8px; border: 2px solid #eab308; margin-top: 8px !important; margin-bottom: 8px; }}
     .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 9px; color: #1e293b; }}
     .cal-table td {{ text-align: center; padding: 2px 1px; font-weight: 700; border-radius: 3px; }}
     .day-today {{ background-color: #eab308 !important; }}
     .day-task {{ color: #ef4444 !important; border: 1.5px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
     
-    .term-box {{ 
-        background: #334155; 
-        padding: 10px 12px; 
-        border-radius: 6px; 
-        border-left: 4px solid #ef4444; 
-        margin-bottom: 6px; 
-        color: white; 
-        font-size: 0.75rem; 
-        line-height: 1.3;
-    }}
+    .term-box {{ background: #334155; padding: 10px 12px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 6px; color: white; font-size: 0.75rem; line-height: 1.3; }}
     .term-box:first-of-type {{ margin-top: 8px !important; }} 
     
     .sidebar-header {{ color: #eab308; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; margin-top: 8px; }}
@@ -55,12 +39,14 @@ st.markdown(f"""
     button[data-baseweb="tab"] {{ font-size: 1.0rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #cbd5e1 !important; border-radius: 8px 8px 0 0 !important; padding: 8px 25px !important; margin-right: 4px !important; }}
     button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #0f172a !important; border-bottom: 5px solid #ef4444 !important; }}
     
-    /* NOWY KOLOR NAGŁÓWKA ARKUSZA */
-    [data-testid="stDataFrameHeaderCell"] {{ 
-        background-color: #1e293b !important; 
-        color: #eab308 !important; 
+    /* WYMUSZONA STYLIZACJA NAGŁÓWKA TABELI */
+    div[data-testid="stDataFrameHeaderCell"] {{
+        background-color: #1e293b !important;
+        color: #eab308 !important;
         font-weight: 900 !important;
-        border-bottom: 2px solid #eab308 !important;
+    }}
+    div[data-testid="stDataFrameHeaderCell"] span {{
+        color: #eab308 !important;
     }}
     
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.0rem !important; }}
@@ -70,7 +56,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH
+# 2. LOGIKA DANYCH (NIENARUSZONA)
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -92,6 +78,7 @@ def pobierz_arkusz(nazwa, filtruj=True):
         df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :5].copy()
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
+        # Sortowanie logiczne zachowane
         df['sort_val'] = pd.to_numeric(df.iloc[:, 3].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
         df = df.sort_values(by='sort_val', ascending=False)
 
