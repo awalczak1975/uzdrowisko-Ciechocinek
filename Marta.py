@@ -39,14 +39,17 @@ st.markdown(f"""
     button[data-baseweb="tab"] {{ font-size: 1.0rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #cbd5e1 !important; border-radius: 8px 8px 0 0 !important; padding: 8px 25px !important; margin-right: 4px !important; }}
     button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #0f172a !important; border-bottom: 5px solid #ef4444 !important; }}
     
-    /* WYMUSZONA STYLIZACJA NAGŁÓWKA TABELI */
-    div[data-testid="stDataFrameHeaderCell"] {{
+    /* ABSOLUTNE WYMUSZENIE KOLORU NAGŁÓWKA TABELI */
+    div[data-testid="stDataFrame"] thead tr th {{
         background-color: #1e293b !important;
         color: #eab308 !important;
-        font-weight: 900 !important;
     }}
-    div[data-testid="stDataFrameHeaderCell"] span {{
+    div[data-testid="stDataFrameHeaderCell"] {{
+        background-color: #1e293b !important;
+    }}
+    div[data-testid="stDataFrameHeaderCell"] label {{
         color: #eab308 !important;
+        font-weight: 900 !important;
     }}
     
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.0rem !important; }}
@@ -56,7 +59,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH (NIENARUSZONA)
+# 2. LOGIKA DANYCH
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -78,7 +81,7 @@ def pobierz_arkusz(nazwa, filtruj=True):
         df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :5].copy()
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
-        # Sortowanie logiczne zachowane
+        # Logika sortowania i ikon
         df['sort_val'] = pd.to_numeric(df.iloc[:, 3].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
         df = df.sort_values(by='sort_val', ascending=False)
 
