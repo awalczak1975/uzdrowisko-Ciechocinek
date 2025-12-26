@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I ZOPTYMALIZOWANA STYLIZACJA
+# 1. KONFIGURACJA I STYLIZACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -26,23 +26,11 @@ st.markdown(f"""
     .cal-table td {{ text-align: center; padding: 2px 1px; font-weight: 700; border-radius: 3px; }}
     .day-today {{ background-color: #eab308 !important; }}
     .day-task {{ color: #ef4444 !important; border: 1.5px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
-    
-    .term-box {{ 
-        background: #334155; 
-        padding: 10px 12px; 
-        border-radius: 6px; 
-        border-left: 4px solid #ef4444; 
-        margin-bottom: 6px; 
-        color: white; 
-        font-size: 0.75rem; 
-        line-height: 1.3;
-    }}
+    .term-box {{ background: #334155; padding: 10px 12px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 6px; color: white; font-size: 0.75rem; line-height: 1.3; }}
     .sidebar-header {{ color: #eab308; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; margin-top: 8px; }}
     .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 6px; border-radius: 8px; font-weight: 900; font-size: 0.75rem; text-align: center; margin-top: 10px; margin-bottom: 5px; border: 2px solid white; }}
-    
     button[data-baseweb="tab"] {{ font-size: 1.0rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #cbd5e1 !important; border-radius: 8px 8px 0 0 !important; padding: 8px 25px !important; margin-right: 4px !important; }}
     button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #0f172a !important; border-bottom: 5px solid #ef4444 !important; }}
-    
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.0rem !important; }}
     [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; font-size: 0.8rem !important; }}
     [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 10px !important; }}
@@ -72,26 +60,30 @@ def pobierz_arkusz(nazwa, filtruj=True):
         df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :5].copy()
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
+        # Pomocnicza kolumna do sortowania
+        df['sort_val'] = pd.to_numeric(df.iloc[:, 3].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
+        
+        # Sortowanie: największe wartości (spóźnienia) na górę
+        df = df.sort_values(by='sort_val', ascending=False)
+
         def wstaw_emotke(row):
             try:
-                # Kolumna DNI (index 3)
-                dni = pd.to_numeric(str(row.iloc[3]).replace(',', '.').strip(), errors='coerce')
+                dni = row['sort_val']
                 tresc = str(row.iloc[0])
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
-                
-                # NOWA LOGIKA ZIELONEJ IKONKI
-                if not pd.isna(dni):
-                    if dni >= -2: return f"🔥 {tresc}" # Spóźnione i do 2 dni przed [cite: 2025-12-22]
-                    if dni < -30: return f"🟢 {tresc}" # Więcej niż 30 dni
+                if dni >= -2: return f"🔥 {tresc}"
+                if dni < -30: return f"🟢 {tresc}"
                 return f"⏳ {tresc}"
             except: return str(row.iloc[0])
 
         df.iloc[:, 0] = df.apply(wstaw_emotke, axis=1)
+        df_final = df.drop(columns=['sort_val'])
+        
         if filtruj:
-            col_osoba = df.iloc[:, 4].str.lower()
-            if zalogowany == "Sławek": return df[col_osoba.str.contains("sławek", na=False)].copy()
-            elif zalogowany in ["Rafał", "Agata"]: return df[~col_osoba.str.contains("sławek", na=False)].copy()
-        return df 
+            col_osoba = df_final.iloc[:, 4].str.lower()
+            if zalogowany == "Sławek": return df_final[col_osoba.str.contains("sławek", na=False)].copy()
+            elif zalogowany in ["Rafał", "Agata"]: return df_final[~col_osoba.str.contains("sławek", na=False)].copy()
+        return df_final 
     except: return pd.DataFrame()
 
 @st.dialog("➕ DODAJ NOWE ZADANIE")
@@ -108,22 +100,21 @@ def otworz_formularz():
                     sh = polacz().open("Marta-Dział Techniczny")
                     ws = sh.worksheet("Zadania bieżące")
                     ws.append_row([tresc, uwagi, deadline.strftime("%Y-%m-%d"), "", osoba])
-                    st.success("Zadanie zapisane pomyślnie!")
+                    st.success("Zadanie zapisane!")
                     st.cache_data.clear()
                     st.rerun()
-                except Exception as e:
-                    st.error(f"Problem z arkuszem: {e}")
-            else: st.warning("Musisz podać treść zadania!")
+                except Exception as e: st.error(f"Błąd: {e}")
+            else: st.warning("Wpisz treść!")
 
 # ==========================================================
-# 3. LEWY PANEL (SIDEBAR)
+# 3. SIDEBAR I WIDOK GŁÓWNY
 # ==========================================================
 df_side = pobierz_arkusz("Zadania bieżące", filtruj=True)
 with st.sidebar:
     st.markdown(f'<a href="https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u={zalogowany}&k={USERS[zalogowany]}" target="_self" class="logo-link"><img src="{LOGO_URL}"></a>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1: 
-        if st.button("➕ DODAJ", use_container_width=True, key="btn_dodaj"): otworz_formularz()
+        if st.button("➕ DODAJ", use_container_width=True): otworz_formularz()
     with c2: 
         if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
     
@@ -151,30 +142,21 @@ with st.sidebar:
     if not df_side.empty:
         for _, r in df_side.head(5).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[2]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
-    
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
-# ==========================================================
-# 4. WIDOK GŁÓWNY
-# ==========================================================
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj=False)
-lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "CZAT 🔴"]
-tabs = st.tabs(lista_zakladek)
+tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "CZAT 🔴"])
 
-for i, nazwa in enumerate(lista_zakladek):
-    if nazwa == "CZAT 🔴":
-        with tabs[i]: st.info("Czat aktywny.")
-        continue
+for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka", "CZAT 🔴"]):
     with tabs[i]:
+        if nazwa == "CZAT 🔴": st.info("Czat aktywny."); continue
         df_tab = pobierz_arkusz(nazwa, filtruj=(nazwa != "Zadania zrealizowane"))
         m1, m2, m3, m4 = st.columns(4)
         pilne_count = 0
         if not df_tab.empty:
             num_dni = pd.to_numeric(df_tab.iloc[:, 3].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
             pilne_count = len(df_tab[num_dni >= -2])
-        m1.metric("RAZEM", len(df_tab))
-        m2.metric("PILNE 🔥", pilne_count)
-        m3.metric("ZREALIZOWANE", len(df_zreal_full))
-        m4.metric("AKTUALIZACJA", now.strftime("%H:%M"))
+        m1.metric("RAZEM", len(df_tab)); m2.metric("PILNE 🔥", pilne_count)
+        m3.metric("ZREALIZOWANE", len(df_zreal_full)); m4.metric("AKTUALIZACJA", now.strftime("%H:%M"))
         st.markdown("---")
         if not df_tab.empty: st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
