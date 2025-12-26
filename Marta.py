@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA
+# 1. KONFIGURACJA I ZOPTYMALIZOWANA STYLIZACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
@@ -19,27 +19,31 @@ st.markdown(f"""
     <style>
     .block-container {{ padding-top: 0.5rem !important; }}
     [data-testid="stSidebar"] {{ background-color: #1e293b !important; border-right: 5px solid #eab308 !important; min-width: 310px !important; }}
-    .logo-link {{ display: block; text-align: center; margin-top: -65px !important; margin-bottom: 15px !important; }}
-    .logo-link img {{ width: 185px; }}
-    .cal-container {{ background: white; padding: 10px; border-radius: 8px; border: 2px solid #eab308; margin-bottom: 15px; }}
-    .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 11px; color: #1e293b; }}
-    .cal-table td {{ text-align: center; padding: 5px 1px; font-weight: 700; border-radius: 3px; }}
-    .day-today {{ background-color: #eab308 !important; }}
-    .day-task {{ color: #ef4444 !important; border: 2.5px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
-    .term-box {{ background: #334155; padding: 12px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 10px; color: white; font-size: 0.75rem; }}
-    .sidebar-header {{ color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; margin-top: 15px; }}
+    .logo-link {{ display: block; text-align: center; margin-top: -65px !important; margin-bottom: 10px !important; }}
+    .logo-link img {{ width: 170px; }}
     
-    /* DELIKATNIE PODNIESIONA STOPKA UŻYTKOWNIKA */
+    /* ZMNIEJSZONY KALENDARZ */
+    .cal-container {{ background: white; padding: 5px; border-radius: 8px; border: 2px solid #eab308; margin-bottom: 10px; }}
+    .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 10px; color: #1e293b; }}
+    .cal-table td {{ text-align: center; padding: 3px 1px; font-weight: 700; border-radius: 3px; }}
+    .day-today {{ background-color: #eab308 !important; }}
+    .day-task {{ color: #ef4444 !important; border: 2px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
+    
+    /* KOMPAKTOWE KAFELKI */
+    .term-box {{ background: #334155; padding: 8px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 6px; color: white; font-size: 0.7rem; }}
+    .sidebar-header {{ color: #eab308; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 10px; }}
+    
+    /* WYŻEJ POŁOŻONA STOPKA */
     .user-info-footer {{ 
         background-color: #eab308 !important; 
         color: #1e293b !important; 
-        padding: 10px; 
+        padding: 8px; 
         border-radius: 8px; 
         font-weight: 900; 
-        font-size: 0.85rem; 
+        font-size: 0.8rem; 
         text-align: center; 
-        margin-top: 25px; 
-        margin-bottom: 40px; 
+        margin-top: 15px; 
+        margin-bottom: 10px; 
         border: 2px solid white; 
     }}
     
@@ -47,7 +51,6 @@ st.markdown(f"""
     [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; }}
     [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 15px !important; }}
     button[data-baseweb="tab"] {{ font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 30px !important; }}
-    button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -76,11 +79,9 @@ def pobierz_arkusz(nazwa, filtruj=True):
         
         def wstaw_emotke(row):
             try:
-                # Kolumna DNI (index 3) na liczbę
                 dni = pd.to_numeric(str(row.iloc[3]).replace(',', '.').strip(), errors='coerce')
                 tresc = str(row.iloc[0])
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
-                # Pilne: -2 i więcej (spóźnienia są na plusie) [cite: 2025-12-22]
                 if not pd.isna(dni) and dni >= -2: return f"🔥 {tresc}"
                 return f"⏳ {tresc}"
             except: return str(row.iloc[0])
@@ -94,7 +95,7 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. LEWY PANEL (SIDEBAR)
+# 3. LEWY PANEL (SIDEBAR) - ZOPTYMALIZOWANY
 # ==========================================================
 df_side = pobierz_arkusz("Zadania bieżące", filtruj=True)
 with st.sidebar:
@@ -129,7 +130,6 @@ with st.sidebar:
         for _, r in df_side.head(4).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[2]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
     
-    # PODNIESIONY PASEK ZALOGOWANIA
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
@@ -147,7 +147,6 @@ for i, nazwa in enumerate(lista_zakladek):
         df_tab = pobierz_arkusz(nazwa, filtruj=(nazwa != "Zadania zrealizowane"))
         m1, m2, m3, m4 = st.columns(4)
         
-        # LICZNIK PILNYCH: DNI (index 3) >= -2
         pilne_count = 0
         if not df_tab.empty:
             num_dni = pd.to_numeric(df_tab.iloc[:, 3].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
