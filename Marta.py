@@ -38,7 +38,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA UWIERZYTELNIANIA I DANYCH
+# 2. LOGIKA DANYCH I FILTROWANIA
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -63,11 +63,11 @@ def pobierz_arkusz(nazwa, filtruj=True):
         def wstaw_emotke(row):
             try:
                 # Bezwzględna konwersja DNI na liczbę
-                dni_raw = str(row.iloc[4]).replace(',', '.').strip()
-                dni = pd.to_numeric(dni_raw, errors='coerce')
+                raw_dni = str(row.iloc[4]).replace(',', '.').strip()
+                dni = pd.to_numeric(raw_dni, errors='coerce')
                 original_text = str(row.iloc[0])
                 if "zrealizowane" in nazwa.lower(): return f"✅ {original_text}"
-                # Zasada: -2 i wszystko na plusie to OGIEŃ 🔥
+                # Logika: Wszystko od -2 w górę to ogień 🔥
                 if not pd.isna(dni) and dni >= -2: return f"🔥 {original_text}"
                 return f"⏳ {original_text}"
             except: return str(row.iloc[0])
@@ -81,7 +81,7 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. LEWY PANEL (SIDEBAR)
+# 3. LEWY PANEL (SIDEBAR) - WYMUSZONE WYŚWIETLANIE
 # ==========================================================
 df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj=True)
 PERSONAL_URL = f"https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u={zalogowany}&k={USERS[zalogowany]}"
@@ -99,7 +99,7 @@ with st.sidebar:
     
     dni_z_zadaniem = set()
     if not df_sidebar.empty:
-        # Prawidłowe zaznaczanie dat z DEADLINE na czerwono
+        # Zaznaczanie terminów w kalendarzu na czerwono
         dt_deadlines = pd.to_datetime(df_sidebar.iloc[:, 3], errors='coerce', dayfirst=True)
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
@@ -123,7 +123,7 @@ with st.sidebar:
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY - LICZNIK PILNYCH
+# 4. WIDOK GŁÓWNY - POPRAWNE LICZNIKI
 # ==========================================================
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
@@ -139,7 +139,7 @@ for i, nazwa in enumerate(lista_zakladek):
         df_tab = pobierz_arkusz(nazwa, filtruj=True)
         m1, m2, m3, m4 = st.columns(4)
         
-        # SIŁOWE LICZENIE PILNYCH: DNI >= -2
+        # LICZNIK PILNYCH: DNI >= -2 (W tym 3, 5, 7...)
         pilne_count = 0
         if not df_tab.empty:
             dni_vals = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
