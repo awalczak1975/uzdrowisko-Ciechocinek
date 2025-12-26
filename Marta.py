@@ -28,9 +28,9 @@ st.markdown("""
     min-width: 310px !important;
 }
 
-/* LOGO */
-.logo-link { display: block; text-align: center; margin-top: -65px !important; margin-bottom: 5px !important; }
-.logo-link img { width: 160px; }
+/* LOGO W SIDEBARZE */
+.logo-link { display: block; text-align: center; margin-top: -30px !important; margin-bottom: 20px !important; }
+.logo-link img { width: 180px; }
 
 /* ZAKŁADKI */
 button[data-baseweb="tab"] {
@@ -47,9 +47,7 @@ button[data-baseweb="tab"][aria-selected="true"] {
     border-bottom: 5px solid #ef4444 !important;
 }
 
-/* ===============================
-   NAGŁÓWEK TABELI
-   =============================== */
+/* NAGŁÓWEK TABELI */
 div[data-testid="stDataFrame"] thead tr th {
     background-color: #0f172a !important;
     border-bottom: 3px solid #eab308 !important;
@@ -60,9 +58,7 @@ div[data-testid="stDataFrameHeaderCell"] * {
     text-transform: uppercase;
 }
 
-/* ===============================
-   PIERWSZY WIERSZ DANYCH
-   =============================== */
+/* PIERWSZY WIERSZ DANYCH */
 div[data-testid="stDataFrame"] tbody tr:first-child {
     background-color: #fef3c7 !important;
 }
@@ -89,6 +85,11 @@ div[data-testid="stDataFrame"] tbody tr:first-child td {
     text-transform: uppercase;
     font-size: 0.8rem !important;
 }
+
+/* Sidebar Text Color */
+[data-testid="stSidebar"] section[data-testid="stSidebarNav"] + div {
+    color: white !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -107,7 +108,7 @@ k_p = st.query_params.get("k", "")
 if u_p in USERS and USERS[u_p] == k_p:
     zalogowany = u_p
 else:
-    st.error("BŁĄD LOGOWANIA")
+    st.error("BŁĄD LOGOWANIA - Nieprawidłowe parametry w adresie URL.")
     st.stop()
 
 def polacz():
@@ -127,7 +128,28 @@ def pobierz_arkusz(nazwa):
     return df
 
 # ==========================================================
-# 4. UI
+# 4. UI - PANEL BOCZNY (SIDEBAR)
+# ==========================================================
+with st.sidebar:
+    # Wyświetlenie logo
+    st.markdown(f'<div class="logo-link"><img src="{LOGO_URL}"></div>', unsafe_allow_html=True)
+    
+    st.markdown("<h3 style='color: white; text-align: center;'>SYSTEM OPERACYJNY</h3>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    # Informacje o użytkowniku
+    st.write(f"👤 Zalogowany: **{zalogowany}**")
+    st.write(f"📅 Data: {datetime.now(pytz.timezone('Europe/Warsaw')).strftime('%d.%m.%Y')}")
+    
+    st.markdown("---")
+    
+    # Dodatkowy przycisk odświeżania w panelu
+    if st.button("🔄 Odśwież dane"):
+        st.cache_data.clear()
+        st.rerun()
+
+# ==========================================================
+# 5. UI - GŁÓWNA TREŚĆ
 # ==========================================================
 df = pobierz_arkusz("Zadania bieżące")
 now = datetime.now(pytz.timezone("Europe/Warsaw"))
@@ -136,16 +158,19 @@ tabs = st.tabs(["Zadania bieżące", "Zadania zrealizowane", "CZAT 🔴"])
 
 with tabs[0]:
     c1, c2, c3, c4 = st.columns(4)
+    # Wyświetlamy statystyki
     c1.metric("RAZEM", len(df))
-    c2.metric("PILNE 🔥", len(df))
+    # Przykład: liczymy zadania "PILNE" (zakładając, że masz taką kolumnę lub logikę)
+    c2.metric("PILNE 🔥", len(df)) 
     c3.metric("ZREALIZOWANE", 0)
     c4.metric("AKTUALIZACJA", now.strftime("%H:%M"))
 
     st.markdown("---")
+    # Tabela zadań
     st.data_editor(df, use_container_width=True, hide_index=True, height=700)
 
 with tabs[1]:
-    st.info("Zadania zrealizowane")
+    st.info("Tutaj pojawią się zadania przeniesione do archiwum.")
 
 with tabs[2]:
-    st.info("Czat aktywny")
+    st.info("Moduł czatu komunikacyjnego.")
