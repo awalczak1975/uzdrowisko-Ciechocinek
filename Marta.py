@@ -19,7 +19,7 @@ LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocine
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 0.5rem !important; }}
-    [data-testid="stSidebar"] {{ background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }}
+    [data-testid="stSidebar"] {{ background-color: #1e293b !important; border-right: 5px solid #eab308 !important; min-width: 300px !important; }}
     .logo-link {{ display: block; text-align: center; margin-top: -65px !important; margin-bottom: 15px !important; cursor: pointer; }}
     .logo-link img {{ width: 185px; }}
     .cal-container {{ background: white; padding: 10px; border-radius: 8px; border: 2px solid #eab308; width: 100%; margin-bottom: 15px; }}
@@ -39,13 +39,15 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH
+# 2. LOGIKA DANYCH (FOKUS NA KOLUMNĘ A I LICZBY)
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
 
-if u_p in USERS and USERS[u_p] == k_p: zalogowany = u_p
-else: st.error("BŁĄD LOGOWANIA"); st.stop()
+if u_p in USERS and USERS[u_p] == k_p:
+    zalogowany = u_p
+else:
+    st.error("BŁĄD LOGOWANIA"); st.stop()
 
 def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
@@ -63,7 +65,8 @@ def pobierz_arkusz(nazwa, filtruj=True):
         
         def wstaw_emotke(row):
             try:
-                dni = pd.to_numeric(str(row.iloc[4]).replace(',', '.').strip(), errors='coerce')
+                raw_dni = str(row.iloc[4]).replace(',', '.').strip()
+                dni = pd.to_numeric(raw_dni, errors='coerce')
                 tresc = str(row.iloc[0])
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
                 # LOGIKA: Dni >= -2 to ogień (w tym wszystkie spóźnione na plusie)
@@ -80,9 +83,9 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR (PRZYWRÓCONY)
+# 3. SIDEBAR (LOGOTYP, KALENDARZ, NADCHODZĄCE)
 # ==========================================================
-df_biez_side = pobierz_arkusz("Zadania bieżące", filtruj=True)
+df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj=True)
 PERSONAL_URL = f"{APP_URL}?u={zalogowany}&k={USERS[zalogowany]}"
 
 with st.sidebar:
@@ -96,8 +99,8 @@ with st.sidebar:
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_zadaniem = set()
-    if not df_biez_side.empty:
-        dt_deadlines = pd.to_datetime(df_biez_side.iloc[:, 3], errors='coerce', dayfirst=True)
+    if not df_sidebar.empty:
+        dt_deadlines = pd.to_datetime(df_sidebar.iloc[:, 3], errors='coerce', dayfirst=True)
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
     html_cal = f'<div class="cal-container"><table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
@@ -113,14 +116,14 @@ with st.sidebar:
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
-    if not df_biez_side.empty:
-        for _, r in df_biez_side.head(4).iterrows():
+    if not df_sidebar.empty:
+        for _, r in df_sidebar.head(4).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[3]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY
+# 4. WIDOK GŁÓWNY (GLOBALNE LICZNIKI I TABELA)
 # ==========================================================
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
@@ -128,7 +131,6 @@ if zalogowany == "Andrzej": lista_zakladek.append("Terminy Sławka")
 lista_zakladek.append("CZAT 🔴")
 
 tabs = st.tabs(lista_zakladek)
-
 for i, nazwa in enumerate(lista_zakladek):
     if nazwa == "CZAT 🔴":
         with tabs[i]: st.info("Czat aktywny.")
@@ -136,9 +138,11 @@ for i, nazwa in enumerate(lista_zakladek):
     with tabs[i]:
         df_tab = pobierz_arkusz(nazwa, filtruj=True)
         m1, m2, m3, m4 = st.columns(4)
+        
         count_razem = len(df_tab)
         pilne_count = 0
         if not df_tab.empty:
+            # KLUCZOWE PRZELICZENIE DLA LICZNIKA: Wszystko >= -2
             vals_dni = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.'), errors='coerce').fillna(-999)
             pilne_count = len(df_tab[vals_dni >= -2])
         
@@ -146,8 +150,12 @@ for i, nazwa in enumerate(lista_zakladek):
         m2.metric("PILNE 🔥", pilne_count)
         m3.metric("ZREALIZOWANE", len(df_zreal_full))
         m4.metric("AKTUALIZACJA", now.strftime("%H:%M"))
+        
         st.markdown("---")
-        if not df_tab.empty: st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
-        else: st.info("Brak zadań.")
+        if not df_tab.empty:
+            st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
+        else:
+            st.info("Brak zadań.")
 
 st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now.strftime("%d.%m.%Y")}</span></div>', unsafe_allow_html=True)
+```Przy okazji, aby uzyskać dostęp do wszystkich funkcji aplikacji, włącz [aktywność w aplikacjach z Gemini](https://myactivity.google.com/product/gemini).
