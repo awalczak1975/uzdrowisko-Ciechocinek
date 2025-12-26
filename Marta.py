@@ -25,7 +25,7 @@ st.markdown(f"""
     .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 11px; color: #1e293b; }}
     .cal-table td {{ text-align: center; padding: 5px 1px; font-weight: 700; border-radius: 3px; }}
     .day-today {{ background-color: #eab308 !important; }}
-    .day-task {{ color: #ef4444 !important; border: 1.5px solid #ef4444 !important; font-weight: 900 !important; }}
+    .day-task {{ color: #ef4444 !important; border: 1.5px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
     .term-box {{ background: #334155; padding: 12px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 10px; color: white; font-size: 0.75rem; line-height: 1.4; }}
     .sidebar-header {{ color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; margin-top: 15px; }}
     .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.85rem; text-align: center; margin-top: 10px; margin-bottom: 20px; border: 2px solid white; }}
@@ -38,7 +38,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA UWIERZYTELNIANIA
+# 2. LOGIKA DANYCH I FILTROWANIA
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -61,21 +61,25 @@ def pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True):
         if len(dane) < 2: return pd.DataFrame()
         
         df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :6].copy()
+        # Filtr na kolumnę A (Treść Zadania)
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
         
-        def wstaw_emotke(row):
+        def procesuj_wiersz(row):
             try:
-                # Siłowa konwersja na liczbę
+                # Zamiana DNI (index 4) na liczbę
                 raw_dni = str(row.iloc[4]).replace(',', '.').strip()
                 dni = pd.to_numeric(raw_dni, errors='coerce')
                 tresc = str(row.iloc[0])
+                
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
-                # PILNE: wszystko >= -2
-                if not pd.isna(dni) and dni >= -2: return f"🔥 {tresc}"
+                
+                # LOGIKA ANDRZEJA: Dni >= -2 to ogień 🔥 (w tym wszystkie spóźnienia na plusie)
+                if not pd.isna(dni) and dni >= -2:
+                    return f"🔥 {tresc}"
                 return f"⏳ {tresc}"
             except: return str(row.iloc[0])
 
-        df.iloc[:, 0] = df.apply(wstaw_emotke, axis=1)
+        df.iloc[:, 0] = df.apply(procesuj_wiersz, axis=1)
 
         if filtruj_dla_uzytkownika:
             col_osoba = df.iloc[:, 5].str.lower()
@@ -85,7 +89,7 @@ def pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. LEWY PANEL (SIDEBAR) - WYMUSZONE WYŚWIETLANIE
+# 3. LEWY PANEL (SIDEBAR) - LOGIKA KALENDARZA
 # ==========================================================
 df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj_dla_uzytkownika=True)
 PERSONAL_URL = f"https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u={zalogowany}&k={USERS[zalogowany]}"
@@ -100,9 +104,12 @@ with st.sidebar:
     st.markdown('<div class="sidebar-header">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
+    
+    # NAPRAWA ZAZNACZANIA DAT W KALENDARZU
     dni_z_zadaniem = set()
     if not df_sidebar.empty:
         dt_deadlines = pd.to_datetime(df_sidebar.iloc[:, 3], errors='coerce', dayfirst=True)
+        # Zbieramy tylko dni z bieżącego miesiąca i roku
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
     html_cal = f'<div class="cal-container"><table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
@@ -125,7 +132,7 @@ with st.sidebar:
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (POPRAWIONE LICZNIKI)
+# 4. WIDOK GŁÓWNY - POPRAWIONE METRYKI
 # ==========================================================
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj_dla_uzytkownika=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
@@ -135,17 +142,18 @@ lista_zakladek.append("CZAT 🔴")
 tabs = st.tabs(lista_zakladek)
 for i, nazwa in enumerate(lista_zakladek):
     if nazwa == "CZAT 🔴":
-        with tabs[i]: st.info("Czat aktywny.")
+        with tabs[i]: st.info("Czat firmowy aktywny.")
         continue
     with tabs[i]:
         df_tab = pobierz_arkusz(nazwa, filtruj_dla_uzytkownika=True)
         m1, m2, m3, m4 = st.columns(4)
         
-        # LICZNIK PILNYCH: DNI >= -2 (W tym 3, 5, 7...)
+        # ABSOLUTNA NAPRAWA LICZNIKA PILNYCH
         pilne_count = 0
         if not df_tab.empty:
-            dni_raw_values = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
-            pilne_count = len(df_tab[dni_raw_values >= -2])
+            # Tworzymy tymczasową serię numeryczną dla precyzyjnego liczenia
+            vals_dni = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
+            pilne_count = len(df_tab[vals_dni >= -2]) # Liczy -2, -1, 0 oraz wszystkie spóźnienia (+)
         
         m1.metric("RAZEM", len(df_tab))
         m2.metric("PILNE 🔥", pilne_count)
