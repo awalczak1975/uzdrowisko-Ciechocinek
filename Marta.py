@@ -27,15 +27,14 @@ st.markdown(f"""
     .day-today {{ background-color: #eab308 !important; }}
     .day-task {{ color: #ef4444 !important; border: 1.5px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
     
-    /* ZWIĘKSZONE KAFELKI O 20% I 5 ZADAŃ */
     .term-box {{ 
         background: #334155; 
-        padding: 10px 12px; /* Zwiększony padding */
+        padding: 10px 12px; 
         border-radius: 6px; 
         border-left: 4px solid #ef4444; 
         margin-bottom: 6px; 
         color: white; 
-        font-size: 0.75rem; /* Delikatnie większa czcionka */
+        font-size: 0.75rem; 
         line-height: 1.3;
     }}
     .sidebar-header {{ color: #eab308; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; margin-top: 8px; }}
@@ -72,14 +71,21 @@ def pobierz_arkusz(nazwa, filtruj=True):
         if len(dane) < 2: return pd.DataFrame()
         df = pd.DataFrame(dane[1:], columns=dane[0]).iloc[:, :5].copy()
         df = df[df.iloc[:, 0].str.strip() != ""].copy()
+        
         def wstaw_emotke(row):
             try:
+                # Kolumna DNI (index 3)
                 dni = pd.to_numeric(str(row.iloc[3]).replace(',', '.').strip(), errors='coerce')
                 tresc = str(row.iloc[0])
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
-                if not pd.isna(dni) and dni >= -2: return f"🔥 {tresc}"
+                
+                # NOWA LOGIKA ZIELONEJ IKONKI
+                if not pd.isna(dni):
+                    if dni >= -2: return f"🔥 {tresc}" # Spóźnione i do 2 dni przed [cite: 2025-12-22]
+                    if dni < -30: return f"🟢 {tresc}" # Więcej niż 30 dni
                 return f"⏳ {tresc}"
             except: return str(row.iloc[0])
+
         df.iloc[:, 0] = df.apply(wstaw_emotke, axis=1)
         if filtruj:
             col_osoba = df.iloc[:, 4].str.lower()
@@ -143,7 +149,6 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_side.empty:
-        # POKAZUJEMY TERAZ 5 ZADAŃ
         for _, r in df_side.head(5).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[2]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
     
