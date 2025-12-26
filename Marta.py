@@ -38,7 +38,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. POŁĄCZENIE Z ARKUSZEM
+# 2. LOGIKA UWIERZYTELNIANIA
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -76,31 +76,31 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. FUNKCJA DODAWANIA ZADANIA
+# 3. NAPRAWIONY FORMULARZ DODAWANIA
 # ==========================================================
 @st.dialog("➕ DODAJ NOWE ZADANIE")
-def dodaj_zadanie():
-    with st.form("form_dodaj"):
-        tresc = st.text_input("Treść zadania")
-        uwagi = st.text_area("Uwagi")
-        deadline = st.date_input("Deadline", datetime.now())
-        osoba = st.selectbox("Osoba", list(USERS.keys()))
-        submit = st.form_submit_button("ZAPISZ W ARKUSZU")
+def otworz_formularz():
+    with st.form("form_global"):
+        tresc = st.text_input("Co jest do zrobienia?")
+        uwagi = st.text_area("Szczegóły / Uwagi")
+        deadline = st.date_input("Termin (Deadline)", datetime.now())
+        osoba = st.selectbox("Dla kogo?", list(USERS.keys()), index=list(USERS.keys()).index(zalogowany))
+        submit = st.form_submit_button("✅ ZAPISZ W ARKUSZU")
         
         if submit:
             if tresc:
                 try:
                     sh = polacz().open("Marta-Dział Techniczny")
                     ws = sh.worksheet("Zadania bieżące")
-                    nowy_wiersz = [tresc, uwagi, deadline.strftime("%Y-%m-%d"), "", osoba]
-                    ws.append_row(nowy_wiersz)
-                    st.success("Zadanie dodane!")
+                    # Tworzymy wiersz (DNI zostawiamy puste, arkusz sam policzy)
+                    ws.append_row([tresc, uwagi, deadline.strftime("%Y-%m-%d"), "", osoba])
+                    st.success("Zadanie zapisane pomyślnie!")
                     st.cache_data.clear()
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Błąd zapisu: {e}")
+                    st.error(f"Problem z arkuszem: {e}")
             else:
-                st.warning("Wpisz treść zadania!")
+                st.warning("Musisz podać treść zadania!")
 
 # ==========================================================
 # 4. LEWY PANEL (SIDEBAR)
@@ -110,9 +110,13 @@ with st.sidebar:
     st.markdown(f'<a href="https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u={zalogowany}&k={USERS[zalogowany]}" target="_self" class="logo-link"><img src="{LOGO_URL}"></a>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1: 
-        if st.button("➕ DODAJ", use_container_width=True): dodaj_zadanie()
+        # Wywołanie okna dialogowego
+        if st.button("➕ DODAJ", use_container_width=True, key="btn_dodaj"):
+            otworz_formularz()
     with c2: 
-        if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
+        if st.button("🔄 ODSW", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
     
     st.markdown('<div class="sidebar-header">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
@@ -149,7 +153,7 @@ tabs = st.tabs(lista_zakladek)
 
 for i, nazwa in enumerate(lista_zakladek):
     if nazwa == "CZAT 🔴":
-        with tabs[i]: st.info("Czat firmowy aktywny.")
+        with tabs[i]: st.info("Czat aktywny.")
         continue
     with tabs[i]:
         df_tab = pobierz_arkusz(nazwa, filtruj=(nazwa != "Zadania zrealizowane"))
