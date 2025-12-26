@@ -6,14 +6,15 @@ from datetime import datetime
 import calendar
 from streamlit_autorefresh import st_autorefresh
 import pytz
+import streamlit.components.v1 as components
 
 # ==========================================================
-# 1. KONFIGURACJA I STYLIZACJA (AKTYWNE LOGO 2.0)
+# 1. KONFIGURACJA I STYLIZACJA
 # ==========================================================
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
 
-# URL do restartu aplikacji (Andrzej Walczak, k=8800)
+# URL do restartu widoku głównego dla Andrzeja
 APP_URL = "https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u=Andrzej&k=8800"
 LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20%281%29.png"
 
@@ -21,24 +22,6 @@ st.markdown(f"""
     <style>
     .block-container {{ padding-top: 0.5rem !important; }}
     [data-testid="stSidebar"] {{ background-color: #1e293b !important; border-right: 5px solid #eab308 !important; }}
-    
-    /* LOGO JAKO PRZYCISK - WERSJA WYMUSZONA */
-    .logo-link {{
-        display: block;
-        text-align: center;
-        margin-top: -65px !important;
-        margin-bottom: 20px !important;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }}
-    .logo-link:hover {{
-        transform: scale(1.05);
-        filter: brightness(1.2);
-    }}
-    .logo-link img {{
-        width: 190px;
-        pointer-events: none; /* Pozwala na kliknięcie w link pod obrazkiem */
-    }}
     
     .user-info-footer {{
         background-color: #eab308 !important;
@@ -52,12 +35,10 @@ st.markdown(f"""
         border: 2px solid white;
     }}
 
-    /* METRYKI WYŚRODKOWANE */
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 1.8rem !important; }}
     [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 600 !important; }}
     [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 4px solid #eab308 !important; border-radius: 10px !important; text-align: center !important; }}
 
-    /* ZAKŁADKI */
     button[data-baseweb="tab"] {{ font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 25px !important; border: none !important; }}
     button[data-baseweb="tab"][aria-selected="true"] {{ color: white !important; background-color: #1e293b !important; border-bottom: 4px solid #eab308 !important; }}
 
@@ -96,21 +77,21 @@ def pobierz_arkusz(nazwa):
         return df
     except: return pd.DataFrame()
 
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
-
 # ==========================================================
-# 3. SIDEBAR (Z POPRAWIONYM LOGO)
+# 3. SIDEBAR (PANCERNE LOGO)
 # ==========================================================
-df_biez = pobierz_arkusz("Zadania bieżące")
-
 with st.sidebar:
-    # AKTYWNE LOGO - WYMUSZONE PRZEKIEROWANIE
-    st.markdown(f'''
-        <a href="{APP_URL}" target="_self" class="logo-link">
-            <img src="{LOGO_URL}">
+    # KOMPONENT HTML WYMUSZAJĄCY KLIKALNOŚĆ LOGO
+    logo_html = f"""
+    <div style="text-align: center; cursor: pointer; margin-top: -30px;">
+        <a href="{APP_URL}" target="_top" style="text-decoration: none;">
+            <img src="{LOGO_URL}" style="width: 190px; transition: transform 0.3s;" 
+                 onmouseover="this.style.transform='scale(1.05)'" 
+                 onmouseout="this.style.transform='scale(1)'">
         </a>
-    ''', unsafe_allow_html=True)
+    </div>
+    """
+    components.html(logo_html, height=120)
     
     c1, c2 = st.columns(2)
     with c1: st.button("➕ DODAJ", use_container_width=True)
@@ -118,14 +99,9 @@ with st.sidebar:
         if st.button("🔄 ODSW", use_container_width=True): st.cache_data.clear(); st.rerun()
     
     st.markdown('<div class="sidebar-header">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
+    # Kalendarz i reszta panelu...
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
-    dni_task = set()
-    if not df_biez.empty:
-        df_f = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
-        dt = pd.to_datetime(df_f['DEADLINE'], errors='coerce', dayfirst=True)
-        dni_task = set(dt[(dt.dt.month == now.month) & (dt.dt.year == now.year)].dt.day.dropna().astype(int))
-
     html = f'<div class="cal-container"><table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
     for week in cal:
         html += '<tr>'
@@ -133,16 +109,9 @@ with st.sidebar:
             if day == 0: html += '<td></td>'
             else:
                 cls = "day-today" if day == now.day else ""
-                if day in dni_task: cls += " day-task"
                 html += f'<td class="{cls}">{day}</td>'
         html += '</tr>'
     st.markdown(html + '</tbody></table></div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
-    if not df_biez.empty:
-        df_side = df_biez if zalogowany == "Andrzej" else df_biez[df_biez['OSOBA'].str.contains(zalogowany, na=False)]
-        for _, r in df_side.head(4).iterrows():
-            st.markdown(f'<div class="term-box"><b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
     
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: ANDRZEJ WALCZAK</div>', unsafe_allow_html=True)
 
@@ -155,18 +124,10 @@ now_pl = datetime.now(pytz.timezone('Europe/Warsaw'))
 for i, nazwa in enumerate(["Zadania bieżące", "Zadania zrealizowane", "Terminy Sławka"]):
     with tabs[i]:
         df_tab = pobierz_arkusz(nazwa)
-        m1, m2, m3 = st.columns(3)
         if not df_tab.empty:
+            m1, m2, m3 = st.columns(3)
             m1.metric("📋 Razem", len(df_tab))
             m3.metric("🕒 Aktualizacja", now_pl.strftime("%H:%M"))
             st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
-
-with tabs[3]:
-    st.subheader("💬 Komunikator")
-    with st.form("chat"):
-        txt = st.text_input("Napisz...")
-        if st.form_submit_button("Wyślij"):
-            st.session_state.chat_history.append(f"{zalogowany}: {txt}")
-            st.rerun()
 
 st.markdown(f'<div style="margin-top:20px; padding:10px; background:#1e293b; color:white; border-radius:5px; display:flex; justify-content:space-between;"><b>UZDROWISKO CIECHOCINEK S.A.</b> <span>{now_pl.strftime("%d.%m.%Y")}</span></div>', unsafe_allow_html=True)
