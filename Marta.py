@@ -39,7 +39,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH (FOKUS NA KOLUMNĘ A)
+# 2. LOGIKA DANYCH
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
@@ -66,6 +66,7 @@ def pobierz_arkusz(nazwa, filtruj=True):
                 dni = pd.to_numeric(str(row.iloc[4]).replace(',', '.').strip(), errors='coerce')
                 tresc = str(row.iloc[0])
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
+                # LOGIKA: Dni >= -2 to ogień (w tym wszystkie spóźnione na plusie)
                 if not pd.isna(dni) and dni >= -2: return f"🔥 {tresc}"
                 return f"⏳ {tresc}"
             except: return str(row.iloc[0])
@@ -81,7 +82,7 @@ def pobierz_arkusz(nazwa, filtruj=True):
 # ==========================================================
 # 3. SIDEBAR (PRZYWRÓCONY)
 # ==========================================================
-df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj=True)
+df_biez_side = pobierz_arkusz("Zadania bieżące", filtruj=True)
 PERSONAL_URL = f"{APP_URL}?u={zalogowany}&k={USERS[zalogowany]}"
 
 with st.sidebar:
@@ -95,8 +96,8 @@ with st.sidebar:
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
     dni_z_zadaniem = set()
-    if not df_sidebar.empty:
-        dt_deadlines = pd.to_datetime(df_sidebar.iloc[:, 3], errors='coerce', dayfirst=True)
+    if not df_biez_side.empty:
+        dt_deadlines = pd.to_datetime(df_biez_side.iloc[:, 3], errors='coerce', dayfirst=True)
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
     html_cal = f'<div class="cal-container"><table class="cal-table"><thead><tr><th colspan="7">{calendar.month_name[now.month].upper()}</th></tr></thead><tbody>'
@@ -112,8 +113,8 @@ with st.sidebar:
     st.markdown(html_cal + '</tbody></table></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
-    if not df_sidebar.empty:
-        for _, r in df_sidebar.head(4).iterrows():
+    if not df_biez_side.empty:
+        for _, r in df_biez_side.head(4).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[3]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
@@ -127,6 +128,7 @@ if zalogowany == "Andrzej": lista_zakladek.append("Terminy Sławka")
 lista_zakladek.append("CZAT 🔴")
 
 tabs = st.tabs(lista_zakladek)
+
 for i, nazwa in enumerate(lista_zakladek):
     if nazwa == "CZAT 🔴":
         with tabs[i]: st.info("Czat aktywny.")
