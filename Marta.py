@@ -38,7 +38,7 @@ st.markdown(f"""
         padding: 10px; 
         border-radius: 8px; 
         font-weight: 900; 
-        font-size: 0.8rem; 
+        font-size: 0.85rem; 
         text-align: center; 
         margin-top: 5px; 
         margin-bottom: 20px; 
@@ -55,27 +55,15 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA DANYCH I DYNAMICZNE NAZWISKO
+# 2. LOGIKA DANYCH I DYNAMICZNE IMIĘ (BEZ NAZWISK)
 # ==========================================================
-# Tutaj wpisz pełne dane pracowników, aby system ich rozpoznawał
-FULL_NAMES = {
-    "Andrzej": "ANDRZEJ WALCZAK",
-    "Marta": "MARTA KOWALSKA",
-    "Sławek": "SŁAWEK NOWAK",
-    "Agata": "AGATA WIŚNIEWSKA",
-    "Rafał": "RAFAŁ WÓJCIK",
-    "Dagmara": "DAGMARA LIS",
-    "Ewelina": "EWELINA MAZUR",
-    "Ireneusz": "IRENEUSZ KRÓL"
-}
-
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
 
 if u_p in USERS and USERS[u_p] == k_p: 
     zalogowany = u_p
-    # Dynamiczne przypisanie nazwiska do zmiennej
-    pelna_nazwa_uz_ = FULL_NAMES.get(zalogowany, zalogowany.upper())
+    # Wyświetlamy tylko imię wielkimi literami
+    imie_wyswietlane = zalogowany.upper()
 else: 
     st.error("BŁĄD LOGOWANIA"); st.stop()
 
@@ -95,7 +83,7 @@ def pobierz_arkusz(nazwa):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR (NAPRAWA ETYKIETY ZALOGOWANEGO)
+# 3. SIDEBAR (TYLKO IMIĘ)
 # ==========================================================
 df_biez = pobierz_arkusz("Zadania bieżące")
 df_zreal_raw = pobierz_arkusz("Zadania zrealizowane")
@@ -132,8 +120,8 @@ with st.sidebar:
         for _, r in df_side.head(4).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.get("DEADLINE","")}</b>: {str(r.get("TREŚĆ ZADANIA",""))[:25]}...</div>', unsafe_allow_html=True)
     
-    # TUTAJ BYŁ BŁĄD - TERAZ UŻYWAMY ZMIENNEJ DYNAMICZNEJ
-    st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {pelna_nazwa_uz_}</div>', unsafe_allow_html=True)
+    # TUTAJ WYŚWIETLAMY TYLKO IMIĘ
+    st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {imie_wyswietlane}</div>', unsafe_allow_html=True)
 
 # ==========================================================
 # 4. WIDOK GŁÓWNY
