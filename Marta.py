@@ -18,42 +18,37 @@ st.set_page_config(
 st_autorefresh(interval=30000, key="refresh")
 
 # ==========================================================
-# 2. CSS – POKOLOROWANY 1 WIERSZ ARKUSZA (NAGŁÓWEK)
+# 2. CSS – TYLKO NAGŁÓWEK TABELI (BEZ PSUCIA SIDEBARA)
 # ==========================================================
 st.markdown("""
 <style>
 
 /* =====================================================
-   1. WIERSZ ARKUSZA = NAGŁÓWEK st.data_editor
-   (BaseWeb – JEDYNE SKUTECZNE SELECTORY)
+   st.data_editor – NAGŁÓWEK KOLUMN
+   (najwęższy możliwy selektor)
    ===================================================== */
 
-/* tło całego nagłówka */
-div[data-testid="stDataFrame"] [role="columnheader"] {
+div[data-testid="stDataFrameHeaderCell"] {
     background-color: #1e293b !important;      /* granat */
-    border-bottom: 4px solid #eab308 !important;
+    border-bottom: 3px solid #eab308 !important;
 }
 
 /* tekst nagłówka */
-div[data-testid="stDataFrame"] [role="columnheader"] span,
-div[data-testid="stDataFrame"] [role="columnheader"] button {
-    color: #facc15 !important;                  /* złoty */
+div[data-testid="stDataFrameHeaderCell"] * {
+    color: #facc15 !important;                 /* złoty */
     font-weight: 900 !important;
     text-transform: uppercase;
     font-size: 0.8rem !important;
 }
 
-/* separator kolumn */
-div[data-testid="stDataFrame"] [role="columnheader"]:not(:last-child) {
+/* separator między kolumnami */
+div[data-testid="stDataFrameHeaderCell"]:not(:last-child) {
     border-right: 1px solid #334155 !important;
 }
 
-/* =====================================================
-   WIERSZE DANYCH – delikatny hover
-   ===================================================== */
+/* hover wierszy – tylko tabela */
 div[data-testid="stDataFrame"] tbody tr:hover {
     background-color: #e0f2fe !important;
-    transition: background-color 0.15s ease-in-out;
 }
 
 </style>
@@ -83,7 +78,7 @@ else:
     st.stop()
 
 # ==========================================================
-# 4. POŁĄCZENIE Z GOOGLE SHEETS
+# 4. GOOGLE SHEETS
 # ==========================================================
 def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
@@ -107,7 +102,7 @@ def pobierz_arkusz(nazwa):
     return df
 
 # ==========================================================
-# 5. WIDOK GŁÓWNY
+# 5. WIDOK
 # ==========================================================
 df = pobierz_arkusz("Zadania bieżące")
 now = datetime.now(pytz.timezone("Europe/Warsaw"))
