@@ -1,4 +1,4 @@
-import streamlit as st
+=import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
@@ -13,7 +13,6 @@ import pytz
 st.set_page_config(page_title="System Uzdrowisko", layout="wide", initial_sidebar_state="expanded")
 st_autorefresh(interval=30000, key="global_refresh")
 
-APP_URL = "https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/"
 LOGO_URL = "https://raw.githubusercontent.com/awalczak1975/uzdrowisko-Ciechocinek/main/logo_uzdrowisko_ciechocinek%20%281%29.png"
 
 st.markdown(f"""
@@ -26,7 +25,7 @@ st.markdown(f"""
     .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 11px; color: #1e293b; }}
     .cal-table td {{ text-align: center; padding: 5px 1px; font-weight: 700; border-radius: 3px; }}
     .day-today {{ background-color: #eab308 !important; }}
-    .day-task {{ color: #ef4444 !important; border: 1.5px solid #ef4444 !important; font-weight: 900 !important; }} /* WYRAŹNE CZERWONE DATY */
+    .day-task {{ color: #ef4444 !important; border: 1.5px solid #ef4444 !important; font-weight: 900 !important; }}
     .term-box {{ background: #334155; padding: 12px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 10px; color: white; font-size: 0.75rem; line-height: 1.4; }}
     .sidebar-header {{ color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; margin-top: 15px; }}
     .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.85rem; text-align: center; margin-top: 10px; margin-bottom: 20px; border: 2px solid white; }}
@@ -39,13 +38,15 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. LOGIKA UWIERZYTELNIANIA I DANYCH
+# 2. LOGIKA UWIERZYTELNIANIA
 # ==========================================================
 USERS = {"Andrzej": "8800", "Marta": "1111", "Sławek": "2222", "Agata": "3333", "Rafał": "4444", "Dagmara": "5555", "Ewelina": "6666", "Ireneusz": "7777"}
 u_p, k_p = st.query_params.get("u", ""), st.query_params.get("k", "")
 
-if u_p in USERS and USERS[u_p] == k_p: zalogowany = u_p
-else: st.error("BŁĄD LOGOWANIA"); st.stop()
+if u_p in USERS and USERS[u_p] == k_p:
+    zalogowany = u_p
+else:
+    st.error("BŁĄD LOGOWANIA"); st.stop()
 
 def polacz():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
@@ -63,10 +64,11 @@ def pobierz_arkusz(nazwa, filtruj=True):
         
         def wstaw_emotke(row):
             try:
+                # Konwersja DNI (index 4) na liczbę
                 dni = pd.to_numeric(str(row.iloc[4]).replace(',', '.').strip(), errors='coerce')
                 tresc = str(row.iloc[0])
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
-                # Logika: Dni >= -2 to pilne (ogień)
+                # PILNE: wszystko od -2 w górę
                 if not pd.isna(dni) and dni >= -2: return f"🔥 {tresc}"
                 return f"⏳ {tresc}"
             except: return str(row.iloc[0])
@@ -80,10 +82,10 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. SIDEBAR (LOGO, KALENDARZ, NADCHODZĄCE)
+# 3. WYMUSZONE WYŚWIETLANIE SIDEBARA
 # ==========================================================
 df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj=True)
-PERSONAL_URL = f"{APP_URL}?u={zalogowany}&k={USERS[zalogowany]}"
+PERSONAL_URL = f"https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u={zalogowany}&k={USERS[zalogowany]}"
 
 with st.sidebar:
     st.markdown(f'<a href="{PERSONAL_URL}" target="_self" class="logo-link"><img src="{LOGO_URL}"></a>', unsafe_allow_html=True)
@@ -95,11 +97,8 @@ with st.sidebar:
     st.markdown('<div class="sidebar-header">📅 TWOJE TERMINY</div>', unsafe_allow_html=True)
     now = datetime.now(pytz.timezone('Europe/Warsaw'))
     cal = calendar.monthcalendar(now.year, now.month)
-    
-    # --- NAPRAWA ZAZNACZANIA DAT W KALENDARZU ---
     dni_z_zadaniem = set()
     if not df_sidebar.empty:
-        # Konwersja kolumny DEADLINE (index 3) na datę
         dt_deadlines = pd.to_datetime(df_sidebar.iloc[:, 3], errors='coerce', dayfirst=True)
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
@@ -109,7 +108,6 @@ with st.sidebar:
         for day in week:
             if day == 0: html_cal += '<td></td>'
             else:
-                # Jeśli dzień ma zadanie, dostaje klasę "day-task" (czerwona ramka)
                 cls = "day-today" if day == now.day else ""
                 if day in dni_z_zadaniem: cls += " day-task"
                 html_cal += f'<td class="{cls}">{day}</td>'
@@ -124,7 +122,7 @@ with st.sidebar:
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY (POPRAWIONE LICZNIKI PILNYCH)
+# 4. WIDOK GŁÓWNY (NAUKA LICZENIA PILNYCH)
 # ==========================================================
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
@@ -140,12 +138,11 @@ for i, nazwa in enumerate(lista_zakladek):
         df_tab = pobierz_arkusz(nazwa, filtruj=True)
         m1, m2, m3, m4 = st.columns(4)
         
-        # --- LICZNIK PILNYCH: Dni >= -2 (Zgodnie ze zdjęciem) ---
+        # LICZNIK PILNYCH: DNI >= -2 (W tym 3, 5, 7...)
         pilne_count = 0
         if not df_tab.empty:
-            df_temp = df_tab.copy()
-            df_temp['DNI_N'] = pd.to_numeric(df_temp.iloc[:, 4].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
-            pilne_count = len(df_temp[df_temp['DNI_N'] >= -2])
+            dni_numbers = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
+            pilne_count = len(df_tab[dni_numbers >= -2])
         
         m1.metric("RAZEM", len(df_tab))
         m2.metric("PILNE 🔥", pilne_count)
