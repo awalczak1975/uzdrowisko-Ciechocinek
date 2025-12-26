@@ -25,7 +25,7 @@ st.markdown(f"""
     .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 11px; color: #1e293b; }}
     .cal-table td {{ text-align: center; padding: 5px 1px; font-weight: 700; border-radius: 3px; }}
     .day-today {{ background-color: #eab308 !important; }}
-    .day-task {{ color: #ef4444 !important; border: 2px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
+    .day-task {{ color: #ef4444 !important; border: 2.5px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
     .term-box {{ background: #334155; padding: 12px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 10px; color: white; font-size: 0.75rem; }}
     .sidebar-header {{ color: #eab308; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; margin-top: 15px; }}
     .user-info-footer {{ background-color: #eab308 !important; color: #1e293b !important; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.85rem; text-align: center; margin-top: 10px; margin-bottom: 20px; border: 2px solid white; }}
@@ -62,13 +62,14 @@ def pobierz_arkusz(nazwa, filtruj=True):
         
         def wstaw_emotke(row):
             try:
-                # Bezwzględna konwersja DNI (index 4) na liczbę
-                dni = pd.to_numeric(str(row.iloc[4]).replace(',', '.').strip(), errors='coerce')
-                tresc = str(row.iloc[0])
-                if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
+                # Bezwzględna konwersja DNI na liczbę
+                dni_raw = str(row.iloc[4]).replace(',', '.').strip()
+                dni = pd.to_numeric(dni_raw, errors='coerce')
+                original_text = str(row.iloc[0])
+                if "zrealizowane" in nazwa.lower(): return f"✅ {original_text}"
                 # Zasada: -2 i wszystko na plusie to OGIEŃ 🔥
-                if not pd.isna(dni) and dni >= -2: return f"🔥 {tresc}"
-                return f"⏳ {tresc}"
+                if not pd.isna(dni) and dni >= -2: return f"🔥 {original_text}"
+                return f"⏳ {original_text}"
             except: return str(row.iloc[0])
 
         df.iloc[:, 0] = df.apply(wstaw_emotke, axis=1)
@@ -80,7 +81,7 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. LEWY PANEL (SIDEBAR) - LOGIKA KALENDARZA
+# 3. LEWY PANEL (SIDEBAR)
 # ==========================================================
 df_sidebar = pobierz_arkusz("Zadania bieżące", filtruj=True)
 PERSONAL_URL = f"https://uzdrowisko-ciechocinek-nex3rfaat9fpxlpug35urd.streamlit.app/?u={zalogowany}&k={USERS[zalogowany]}"
@@ -98,7 +99,7 @@ with st.sidebar:
     
     dni_z_zadaniem = set()
     if not df_sidebar.empty:
-        # Prawidłowe zaznaczanie dat z DEADLINE (index 3)
+        # Prawidłowe zaznaczanie dat z DEADLINE na czerwono
         dt_deadlines = pd.to_datetime(df_sidebar.iloc[:, 3], errors='coerce', dayfirst=True)
         dni_z_zadaniem = set(dt_deadlines[(dt_deadlines.dt.month == now.month) & (dt_deadlines.dt.year == now.year)].dt.day.dropna().astype(int))
 
@@ -122,7 +123,7 @@ with st.sidebar:
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# 4. WIDOK GŁÓWNY - NAPRAWA LICZNIKA PILNYCH
+# 4. WIDOK GŁÓWNY - LICZNIK PILNYCH
 # ==========================================================
 df_zreal_full = pobierz_arkusz("Zadania zrealizowane", filtruj=False)
 lista_zakladek = ["Zadania bieżące", "Zadania zrealizowane"]
@@ -138,7 +139,7 @@ for i, nazwa in enumerate(lista_zakladek):
         df_tab = pobierz_arkusz(nazwa, filtruj=True)
         m1, m2, m3, m4 = st.columns(4)
         
-        # LICZNIK PILNYCH: DNI >= -2 (W tym Twoje 3, 5, 7 dni spóźnienia)
+        # SIŁOWE LICZENIE PILNYCH: DNI >= -2
         pilne_count = 0
         if not df_tab.empty:
             dni_vals = pd.to_numeric(df_tab.iloc[:, 4].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(-999)
