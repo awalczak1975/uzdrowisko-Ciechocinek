@@ -22,18 +22,16 @@ st.markdown(f"""
     .logo-link {{ display: block; text-align: center; margin-top: -65px !important; margin-bottom: 10px !important; }}
     .logo-link img {{ width: 170px; }}
     
-    /* ZMNIEJSZONY KALENDARZ */
+    /* KOMPAKTOWY KALENDARZ */
     .cal-container {{ background: white; padding: 5px; border-radius: 8px; border: 2px solid #eab308; margin-bottom: 10px; }}
     .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 10px; color: #1e293b; }}
     .cal-table td {{ text-align: center; padding: 3px 1px; font-weight: 700; border-radius: 3px; }}
     .day-today {{ background-color: #eab308 !important; }}
     .day-task {{ color: #ef4444 !important; border: 2px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
     
-    /* KOMPAKTOWE KAFELKI */
     .term-box {{ background: #334155; padding: 8px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 6px; color: white; font-size: 0.7rem; }}
     .sidebar-header {{ color: #eab308; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 10px; }}
     
-    /* WYŻEJ POŁOŻONA STOPKA */
     .user-info-footer {{ 
         background-color: #eab308 !important; 
         color: #1e293b !important; 
@@ -46,11 +44,26 @@ st.markdown(f"""
         margin-bottom: 10px; 
         border: 2px solid white; 
     }}
+
+    /* STYLIZACJA ZAKŁADEK - KOLOR PANELU DLA AKTYWNEJ */
+    button[data-baseweb="tab"] {{ 
+        font-size: 1.1rem !important; 
+        font-weight: 700 !important; 
+        color: #1e293b !important; 
+        background-color: #e2e8f0 !important; 
+        border-radius: 8px 8px 0 0 !important; 
+        padding: 10px 30px !important;
+        margin-right: 5px !important;
+    }}
+    button[data-baseweb="tab"][aria-selected="true"] {{ 
+        color: white !important; 
+        background-color: #1e293b !important; /* KOLOR LEWEGO PANELU */
+        border-bottom: 4px solid #eab308 !important; /* ZŁOTA LINIA */
+    }}
     
     [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }}
     [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; }}
     [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 15px !important; }}
-    button[data-baseweb="tab"] {{ font-size: 1.1rem !important; font-weight: 700 !important; color: #1e293b !important; background-color: #e2e8f0 !important; border-radius: 8px 8px 0 0 !important; padding: 10px 30px !important; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -95,7 +108,7 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. LEWY PANEL (SIDEBAR) - ZOPTYMALIZOWANY
+# 3. LEWY PANEL (SIDEBAR)
 # ==========================================================
 df_side = pobierz_arkusz("Zadania bieżące", filtruj=True)
 with st.sidebar:
