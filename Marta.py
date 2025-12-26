@@ -19,51 +19,53 @@ st.markdown(f"""
     <style>
     .block-container {{ padding-top: 0.5rem !important; }}
     [data-testid="stSidebar"] {{ background-color: #1e293b !important; border-right: 5px solid #eab308 !important; min-width: 310px !important; }}
-    .logo-link {{ display: block; text-align: center; margin-top: -65px !important; margin-bottom: 10px !important; }}
-    .logo-link img {{ width: 170px; }}
+    .logo-link {{ display: block; text-align: center; margin-top: -65px !important; margin-bottom: 5px !important; }}
+    .logo-link img {{ width: 160px; }}
     
-    /* KOMPAKTOWY KALENDARZ */
-    .cal-container {{ background: white; padding: 5px; border-radius: 8px; border: 2px solid #eab308; margin-bottom: 10px; }}
-    .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 10px; color: #1e293b; }}
-    .cal-table td {{ text-align: center; padding: 3px 1px; font-weight: 700; border-radius: 3px; }}
+    /* ULTRA KOMPAKTOWY KALENDARZ */
+    .cal-container {{ background: white; padding: 4px; border-radius: 8px; border: 2px solid #eab308; margin-bottom: 8px; }}
+    .cal-table {{ width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 9px; color: #1e293b; }}
+    .cal-table td {{ text-align: center; padding: 2px 1px; font-weight: 700; border-radius: 3px; }}
     .day-today {{ background-color: #eab308 !important; }}
-    .day-task {{ color: #ef4444 !important; border: 2px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
+    .day-task {{ color: #ef4444 !important; border: 1.5px solid #ef4444 !important; font-weight: 900 !important; background-color: #fee2e2 !important; }}
     
-    .term-box {{ background: #334155; padding: 8px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 6px; color: white; font-size: 0.7rem; }}
-    .sidebar-header {{ color: #eab308; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; margin-top: 10px; }}
+    /* MAŁE KAFELKI NADCHODZĄCYCH */
+    .term-box {{ background: #334155; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 5px; color: white; font-size: 0.65rem; }}
+    .sidebar-header {{ color: #eab308; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; margin-top: 8px; }}
     
+    /* STOPKA BEZ KONIECZNOŚCI PRZEWIJANIA */
     .user-info-footer {{ 
         background-color: #eab308 !important; 
         color: #1e293b !important; 
-        padding: 8px; 
+        padding: 6px; 
         border-radius: 8px; 
         font-weight: 900; 
-        font-size: 0.8rem; 
+        font-size: 0.75rem; 
         text-align: center; 
-        margin-top: 15px; 
-        margin-bottom: 10px; 
+        margin-top: 10px; 
+        margin-bottom: 5px; 
         border: 2px solid white; 
     }}
 
-    /* STYLIZACJA ZAKŁADEK - KOLOR PANELU DLA AKTYWNEJ */
+    /* STYLIZACJA ZAKŁADEK - CIEMNIEJSZY KAFELEK DLA AKTYWNEJ */
     button[data-baseweb="tab"] {{ 
-        font-size: 1.1rem !important; 
+        font-size: 1.0rem !important; 
         font-weight: 700 !important; 
         color: #1e293b !important; 
-        background-color: #e2e8f0 !important; 
+        background-color: #cbd5e1 !important; /* Jaśniejszy dla nieaktywnych */
         border-radius: 8px 8px 0 0 !important; 
-        padding: 10px 30px !important;
-        margin-right: 5px !important;
+        padding: 8px 25px !important;
+        margin-right: 4px !important;
     }}
     button[data-baseweb="tab"][aria-selected="true"] {{ 
         color: white !important; 
-        background-color: #1e293b !important; /* KOLOR LEWEGO PANELU */
-        border-bottom: 4px solid #eab308 !important; /* ZŁOTA LINIA */
+        background-color: #0f172a !important; /* BARDZO CIEMNY GRANAT DLA AKTYWNEJ */
+        border-bottom: 5px solid #ef4444 !important; /* CZERWONA LINIA POD SPODEM */
     }}
     
-    [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.2rem !important; }}
-    [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; }}
-    [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 15px !important; }}
+    [data-testid="stMetricValue"] > div {{ display: flex !important; justify-content: center !important; color: #eab308 !important; font-weight: 900 !important; font-size: 2.0rem !important; }}
+    [data-testid="stMetricLabel"] > div {{ display: flex !important; justify-content: center !important; color: white !important; font-weight: 700 !important; text-transform: uppercase; font-size: 0.8rem !important; }}
+    [data-testid="stMetric"] {{ background-color: #1e293b !important; border-top: 5px solid #eab308 !important; border-radius: 12px !important; padding: 10px !important; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -95,6 +97,7 @@ def pobierz_arkusz(nazwa, filtruj=True):
                 dni = pd.to_numeric(str(row.iloc[3]).replace(',', '.').strip(), errors='coerce')
                 tresc = str(row.iloc[0])
                 if "zrealizowane" in nazwa.lower(): return f"✅ {tresc}"
+                # Zasada: -2 i więcej (spóźnienia są na plusie) [cite: 2025-12-22]
                 if not pd.isna(dni) and dni >= -2: return f"🔥 {tresc}"
                 return f"⏳ {tresc}"
             except: return str(row.iloc[0])
@@ -108,7 +111,7 @@ def pobierz_arkusz(nazwa, filtruj=True):
     except: return pd.DataFrame()
 
 # ==========================================================
-# 3. LEWY PANEL (SIDEBAR)
+# 3. LEWY PANEL (SIDEBAR) - KOMPAKTOWY
 # ==========================================================
 df_side = pobierz_arkusz("Zadania bieżące", filtruj=True)
 with st.sidebar:
@@ -140,7 +143,7 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-header">🕒 NADCHODZĄCE TWOJE</div>', unsafe_allow_html=True)
     if not df_side.empty:
-        for _, r in df_side.head(4).iterrows():
+        for _, r in df_side.head(3).iterrows():
             st.markdown(f'<div class="term-box"><b>{r.iloc[2]}</b>: {r.iloc[0]}</div>', unsafe_allow_html=True)
     
     st.markdown(f'<div class="user-info-footer">👤 ZALOGOWANO: {zalogowany.upper()}</div>', unsafe_allow_html=True)
@@ -154,7 +157,7 @@ tabs = st.tabs(lista_zakladek)
 
 for i, nazwa in enumerate(lista_zakladek):
     if nazwa == "CZAT 🔴":
-        with tabs[i]: st.info("Czat aktywny.")
+        with tabs[i]: st.info("Czat firmowy aktywny.")
         continue
     with tabs[i]:
         df_tab = pobierz_arkusz(nazwa, filtruj=(nazwa != "Zadania zrealizowane"))
@@ -170,4 +173,4 @@ for i, nazwa in enumerate(lista_zakladek):
         m3.metric("ZREALIZOWANE", len(df_zreal_full))
         m4.metric("AKTUALIZACJA", now.strftime("%H:%M"))
         st.markdown("---")
-        if not df_tab.empty: st.data_editor(df_tab.iloc[:, :5], use_container_width=True, hide_index=True, height=700)
+        if not df_tab.empty: st.data_editor(df_tab, use_container_width=True, hide_index=True, height=700)
